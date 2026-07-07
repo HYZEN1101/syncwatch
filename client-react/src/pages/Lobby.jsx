@@ -82,7 +82,7 @@ export function Lobby({ ws, onJoined }) {
     }
   }, []);
 
-  // Room handlers
+  // Room handlers;
   useEffect(() => {
     const offC = ws.on('ROOM_CREATED', msg => {
       session.set('sw_role','host'); session.set('sw_code',msg.code);
