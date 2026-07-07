@@ -1,0 +1,59 @@
+{
+  "name": "syncwatch",
+  "version": "1.0.0",
+  "description": "Watch movies together, in sync.",
+  "main": "electron/main.js",
+  "scripts": {
+    "start":         "node server/index.js",
+    "dev:server":    "nodemon server/index.js",
+    "dev:client":    "cd client-react && npm run dev",
+    "build:client":  "cd client-react && npm run build",
+    "electron:dev":  "npm run build:client && electron .",
+    "electron:pack": "npm run build:client && electron-builder"
+  },
+  "dependencies": {
+    "@ngrok/ngrok":  "^1.4.0",
+    "express":       "^4.18.2",
+    "localtunnel":   "^2.0.2",
+    "ws":            "^8.16.0"
+  },
+  "devDependencies": {
+    "cross-env":        "^7.0.3",
+    "electron":         "^30.0.0",
+    "electron-builder": "^24.13.0",
+    "nodemon":          "^3.1.0"
+  },
+  "build": {
+    "appId":       "com.syncwatch.app",
+    "productName": "SyncWatch",
+    "copyright":   "MIT",
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "client-react/dist/**/*",
+      "node_modules/**/*",
+      "!node_modules/.cache"
+    ],
+    "extraResources": [
+      { "from": "assets/", "to": "assets/", "filter": ["**/*"] }
+    ],
+    "mac": {
+      "icon":     "assets/icon.png",
+      "target":   [{ "target": "dmg" }, { "target": "zip" }],
+      "category": "public.app-category.entertainment"
+    },
+    "win": {
+      "icon":   "assets/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "linux": {
+      "icon":   "assets/icon.png",
+      "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick":                           false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut":              true
+    }
+  }
+}

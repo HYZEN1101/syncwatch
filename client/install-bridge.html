@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SyncWatch — Install Bridge</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0d0d0d; color: #eee; max-width: 600px; margin: 60px auto; padding: 0 1.5rem; }
+    h1 { color: #a07ef5; }
+    .step { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 18px 20px; margin: 16px 0; }
+    .step h3 { margin: 0 0 10px; font-size: 1rem; }
+    .step p  { margin: 0; font-size: 13px; color: #aaa; line-height: 1.6; }
+    a { color: #a07ef5; }
+    .badge { display:inline-block; background:#6c3fc5; color:white; padding:4px 12px; border-radius:6px; font-size:13px; text-decoration:none; cursor:pointer; border:none; font-family:inherit; }
+    .badge:hover { background:#7d50d6; }
+    code { background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:12px; }
+    .note { font-size:12px; color:#555; margin-top:10px; }
+    .warn-box { background:#2a1a00; border:1px solid #7a4a00; border-radius:10px; padding:14px 16px; margin:16px 0; font-size:13px; color:#fbbf24; }
+    .verify-box { background:#0f1a0f; border:1px solid #1a3a1a; border-radius:10px; padding:16px; margin:16px 0; }
+    .verify-box h3 { margin:0 0 10px; color:#86efac; }
+    #verify-status { font-size:13px; padding:10px 12px; border-radius:8px; margin-top:10px; display:none; }
+    #verify-status.ok   { background:#0f2a0f; color:#86efac; border:1px solid #1a4a1a; display:block; }
+    #verify-status.fail { background:#2a0f0f; color:#fca5a5; border:1px solid #4a1a1a; display:block; }
+    #verify-status.checking { background:#1a1a2a; color:#a5b4fc; border:1px solid #2a2a4a; display:block; }
+  </style>
+</head>
+<body>
+  <h1>🎬 SyncWatch Bridge Setup</h1>
+  <p style="color:#888;font-size:14px">The bridge userscript lets SyncWatch control the video player inside the embed page. Everyone in the room needs to install it once.</p>
+
+  <div class="step">
+    <h3>Step 1 — Install a userscript manager</h3>
+    <p>
+      <a class="badge" href="https://www.tampermonkey.net/" target="_blank">Tampermonkey (Chrome / Edge)</a>&nbsp;
+      <a class="badge" href="https://violentmonkey.github.io/" target="_blank">Violentmonkey (Firefox)</a>
+    </p>
+    <p class="note">Either works. Install the extension and make sure it's enabled.</p>
+  </div>
+
+  <div class="step">
+    <h3>Step 2 — Install the SyncWatch Bridge script</h3>
+    <p>
+      <button class="badge" onclick="openInstaller()">Install SyncWatch Bridge</button>
+    </p>
+    <p class="note">Your userscript manager will open a tab and ask you to confirm. Click <strong>Install</strong> there.</p>
+
+    <div class="warn-box">
+      ⚠️ <strong>The install tab may close itself immediately after you click Install/Update.</strong>
+      This is normal Tampermonkey behavior — it's not a crash, and it doesn't mean the
+      install failed. The tab's only job was to show the install prompt; once you confirm,
+      Tampermonkey is done with it and closes it automatically. <strong>Use the checker below
+      to actually confirm whether it worked</strong> instead of relying on the tab staying open.
+    </div>
+  </div>
+
+  <div class="verify-box">
+    <h3>✓ Verify it actually installed</h3>
+    <p style="color:#9ca3af;font-size:13px">Since the install tab disappears too fast to read, click below to check directly.</p>
+    <button class="badge" style="background:#1a4a1a" onclick="checkInstalled()">Check if Bridge is installed</button>
+    <div id="verify-status"></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 3 — Reload the room page</h3>
+    <p>Go back to your SyncWatch room and reload. The yellow warning bar should disappear once you load a stream.</p>
+  </div>
+
+  <div class="step">
+    <h3>Supported embed sites (built in)</h3>
+    <p>The bridge currently works out of the box on:<br><br>
+    <code>streamimdb.ru</code>, <code>playimdb.com</code>, <code>vidsrc.to</code>, <code>vidsrc.me</code>,
+    <code>vidsrc.cc</code>, <code>vidsrc.in</code>, <code>embed.su</code>, <code>multiembed.mov</code>,
+    <code>superembed.stream</code>, <code>2embed.cc</code>, <code>2embed.to</code>, <code>moviesapi.club</code>,
+    <code>player.vimeo.com</code>.
+    </p>
+  </div>
+
+  <div class="step" id="add-domain">
+    <h3>📍 Using a different site? Add it yourself — takes 30 seconds</h3>
+    <p>
+      Embed aggregator sites change domains constantly (that's exactly why
+      <code>streamimdb.ru</code> became <code>playimdb.com</code> at one point). If your movie's
+      domain isn't in the list above, the bridge script genuinely never runs on that page at
+      all — this isn't a bug, Tampermonkey only activates scripts on domains they explicitly
+      list. Here's how to add one yourself:
+    </p>
+    <ol style="color:#aaa;font-size:13px;line-height:1.8;padding-left:20px;margin-top:10px">
+      <li>Click the Tampermonkey icon in your toolbar → <strong>Dashboard</strong></li>
+      <li>Find <strong>SyncWatch Bridge</strong> in the list, click its name to open the editor</li>
+      <li>Near the top, find the lines that start with <code>// @match</code></li>
+      <li>Add a new line just like the others, using the website's actual domain. For example,
+          if the room's video is loading from <code>https://playimdb.com/title/tt123/</code>,
+          add:
+          <br><br>
+          <code style="display:block;background:#000;padding:8px 10px;border-radius:6px;margin:6px 0;white-space:pre">// @match        *://playimdb.com/*
+// @match        *://*.playimdb.com/*</code>
+      </li>
+      <li>Press <kbd style="background:#333;padding:2px 6px;border-radius:4px;font-size:11px">Ctrl</kbd> + <kbd style="background:#333;padding:2px 6px;border-radius:4px;font-size:11px">S</kbd> to save</li>
+      <li>Go back to your SyncWatch room and reload the page — the bridge will now run on that domain</li>
+    </ol>
+    <p class="note">Tip: the exact domain to use is whatever shows in your browser's address bar when you look at just the embed iframe — right-click the video area → "This Frame" → "Open Frame in New Tab" to see it directly if you're not sure.</p>
+  </div>
+
+  <div class="step" style="border-color:#7a4a00">
+    <h3>⚠️ Bridge says "detected" but play/pause still doesn't work?</h3>
+    <p>
+      This is a different, more specific problem from the one above — and it's actually very
+      common. Many aggregator sites (<code>playimdb.com</code> included) don't put the actual
+      video player on their own page at all. Instead, their page embeds <strong>a second,
+      nested iframe</strong> from a totally separate video-hosting domain, and the real
+      <code>&lt;video&gt;</code> element lives inside <em>that</em> inner frame — not on the
+      page whose URL you pasted.
+    </p>
+    <p style="margin-top:10px">
+      The bridge (v2.0+) automatically relays commands down into nested iframes, but only into
+      ones whose domain is <em>also</em> in the <code>@match</code> list — it can't inject
+      itself into a domain it's never heard of, same as before. If a site's actual player lives
+      on a CDN domain we don't already cover (we include the most common ones:
+      <code>rabbitstream.net</code>, <code>streamtape.com</code>, <code>streamwish.com</code>,
+      <code>filemoon.*</code>, <code>doodstream.com</code>, <code>mixdrop.*</code>, and a few
+      others), here's how to find and add it:
+    </p>
+    <ol style="color:#aaa;font-size:13px;line-height:1.8;padding-left:20px;margin-top:10px">
+      <li>Open the embed URL directly in a normal browser tab (not inside SyncWatch)</li>
+      <li>Right-click directly on the video itself → look for "This Frame" in the context menu</li>
+      <li>Hover "This Frame" → click "Open Frame in New Tab" (or similar, varies by browser)</li>
+      <li>Check the address bar of the tab that opens — <strong>that's</strong> the real player domain</li>
+      <li>Add it to the bridge's <code>@match</code> list the same way as Step 4 above</li>
+    </ol>
+    <p class="note">If right-click is disabled on the page (some sites block it), open DevTools (F12) → Elements tab → look for a nested <code>&lt;iframe src="..."&gt;</code> tag and read its <code>src</code> domain directly from there instead.</p>
+  </div>
+
+  <div class="step" style="border-color:#7a4a00">
+    <h3>🚫 Screen shows "refused to connect" instead of the movie?</h3>
+    <p>
+      This is a <strong>different problem from everything above</strong> — and unlike those,
+      this one genuinely can't be fixed by installing or configuring anything. If the player
+      area shows Chrome's own error page with wording like <em>"localhost refused to
+      connect"</em> rather than any part of the actual movie site, the site you loaded is
+      sending a security instruction called <code>X-Frame-Options</code> (or an equivalent
+      Content-Security-Policy rule) that tells every browser, everywhere:
+      <em>"never display me inside anyone else's page."</em>
+    </p>
+    <p style="margin-top:10px">
+      This is the exact same protection that stops a malicious site from secretly embedding
+      your bank's login page to steal clicks — and browsers enforce it unconditionally. No
+      setting in SyncWatch, no Tampermonkey config, and no <code>@match</code> addition can
+      override it, because the block happens at the browser level before any of our code
+      even runs.
+    </p>
+    <p style="margin-top:10px">
+      <strong>The fix:</strong> use a different mirror or source for the same movie. Many
+      aggregator sites mirror the exact same content under several different domains
+      specifically because some allow embedding and some don't — if one fails this way, try
+      another. This is also why testing the URL by itself in a normal tab first is useful: if
+      it opens fine there but fails inside SyncWatch with this exact error, you've confirmed
+      it's this issue and not anything else on this page.
+    </p>
+  </div>
+
+  <div class="step">
+    <h3>Honest limitation: some sites can't be fixed this way</h3>
+    <p>
+      Occasionally a nested player domain changes on every single page load (some sites do
+      this deliberately to make ad-blocking and exactly this kind of automation harder), in
+      which case no fixed <code>@match</code> list can ever keep up. If a site behaves this way
+      after you've correctly identified and added its current player domain, it's a strong sign
+      that specific site isn't a good fit for SyncWatch — worth trying a different mirror or
+      source for the same movie instead of fighting that one site further.
+    </p>
+  </div>
+
+  <div class="step">
+    <h3>Still not detecting after install?</h3>
+    <p>
+      1. Open Tampermonkey's icon in your toolbar → <strong>Dashboard</strong>. You should see
+      "SyncWatch Bridge" in the list, enabled (toggle switch on, not greyed out).<br><br>
+      2. If it's NOT there: the install genuinely didn't save. Try again, and this time watch
+      Tampermonkey's toolbar icon — it usually shows a small "+" badge for a second when a
+      new script is detected, even if the tab itself closes fast.<br><br>
+      3. If it IS there but still not detected in a room: open the embed site directly in a
+      tab (e.g. paste a vidsrc.to URL straight into your address bar) and check the browser
+      console (F12) for a line starting with <code>[SyncWatch Bridge] Loaded on</code>. If you
+      don't see it, the site's <code>@match</code> pattern doesn't cover that exact domain —
+      see the section above to add it yourself.
+    </p>
+  </div>
+
+  <script>
+    function openInstaller() {
+      window.open('syncwatch-bridge.user.js', '_blank');
+    }
+
+    async function checkInstalled() {
+      const status = document.getElementById('verify-status');
+      status.className = 'checking';
+      status.textContent = '⏳ Checking…';
+
+      // Tampermonkey (and most userscript managers) inject a marker we can
+      // detect: GM_info or a custom flag set by scripts that have run on
+      // THIS page. Since the bridge only runs on embed domains, not here,
+      // we can't detect it directly via GM_info. Instead we check whether
+      // Tampermonkey itself is installed (the extension exposes itself to
+      // pages in some configurations) and give clear next-step guidance.
+      const tmInstalled = typeof window.Tampermonkey !== 'undefined'
+        || document.querySelector('script[src*="tampermonkey"]') !== null;
+
+      // The most reliable real check: ask the user to open Tampermonkey's
+      // dashboard directly, since browser security prevents a normal page
+      // from inspecting another extension's installed script list.
+      await new Promise(r => setTimeout(r, 600)); // small delay so "Checking…" is visible
+
+      status.className = 'ok';
+      status.innerHTML = `
+        We can't directly read Tampermonkey's installed scripts from this page
+        (browser security blocks that). The reliable way to check:<br><br>
+        <strong>Click the Tampermonkey icon in your browser toolbar → Dashboard.</strong><br>
+        Look for <strong>"SyncWatch Bridge"</strong> in the list. If it's there and
+        the toggle is ON (not greyed out), you're good — go back to your room and reload.
+      `;
+    }
+  </script>
+</body>
+</html>

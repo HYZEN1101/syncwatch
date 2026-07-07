@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SyncWatch</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0d0d0d; color: #eee;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; margin: 0;
+    }
+    .card {
+      background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px;
+      padding: 32px; width: 100%; max-width: 400px;
+    }
+    h1 { margin: 0 0 6px; font-size: 1.6rem; color: #a07ef5; }
+    .subtitle { font-size: 13px; color: #555; margin-bottom: 24px; }
+
+    /* Connection status pill */
+    #conn-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; padding: 4px 10px; border-radius: 20px;
+      background: #2a2a2a; color: #888; margin-bottom: 16px;
+    }
+    #conn-pill.lan   { background: #1a2a1a; color: #6ee7b7; }
+    #conn-pill.ngrok { background: #1a1a2a; color: #a07ef5; }
+    #conn-pill .dot  { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    /* Server row */
+    .server-row {
+      display: flex; gap: 6px; margin-bottom: 16px; align-items: center;
+    }
+    .server-row input {
+      flex: 1; padding: 7px 10px; background: #2a2a2a;
+      border: 1px solid #3a3a3a; color: #888;
+      border-radius: 6px; font-size: 11px;
+    }
+    .server-row button {
+      padding: 7px 12px; background: #2a2a2a; color: #888;
+      border: 1px solid #3a3a3a; border-radius: 6px; cursor: pointer; font-size: 11px;
+      white-space: nowrap;
+    }
+    .server-row button:hover { background: #333; }
+
+    /* Share box — shown when ngrok is active */
+    #share-box {
+      display: none;
+      background: #0f1a0f; border: 1px solid #1a3a1a; border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 16px; font-size: 12px; color: #6ee7b7;
+    }
+    #share-box strong { display: block; margin-bottom: 6px; color: #86efac; }
+    #share-url {
+      background: #162016; border: 1px solid #1e3a1e; color: #86efac;
+      border-radius: 6px; padding: 6px 8px; font-size: 12px;
+      width: 100%; cursor: pointer; word-break: break-all;
+    }
+    #copy-btn {
+      margin-top: 6px; padding: 4px 12px; background: #1a3a1a;
+      color: #6ee7b7; border: none; border-radius: 6px; cursor: pointer; font-size: 11px;
+    }
+    #copy-btn:hover { background: #234a23; }
+
+    label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+    input.main {
+      display: block; width: 100%; padding: 10px 12px; margin-bottom: 12px;
+      background: #2a2a2a; border: 1px solid #3a3a3a; color: #eee;
+      border-radius: 8px; font-size: 14px;
+    }
+    input.main:focus { outline: none; border-color: #6c3fc5; }
+    button.primary {
+      display: block; width: 100%; padding: 10px;
+      background: #6c3fc5; color: white; border: none;
+      border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 8px;
+    }
+    button.primary:hover { background: #7d50d6; }
+    .divider { border: none; border-top: 1px solid #2a2a2a; margin: 20px 0; }
+    #error { color: #f87171; font-size: 13px; min-height: 20px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>🎬 SyncWatch</h1>
+  <div class="subtitle">Watch together, anywhere</div>
+
+  <!-- Connection status -->
+  <div id="conn-pill">
+    <span class="dot"></span>
+    <span id="conn-label">Connecting…</span>
+  </div>
+
+  <!-- Share box (visible when ngrok tunnel is active) -->
+  <div id="share-box">
+    <strong>🌐 Public link — share this with your friends:</strong>
+    <input id="share-url" readonly onclick="this.select()" />
+    <button id="copy-btn" onclick="copyShareUrl()">Copy link</button>
+  </div>
+
+  <!-- Server field (collapsed by default, shown as small row) -->
+  <div class="server-row">
+    <input id="server-url" value="ws://localhost:3000" title="WebSocket server URL" />
+    <button onclick="reconnectWS()">Reconnect</button>
+  </div>
+
+  <label>Your name</label>
+  <input id="name" class="main" placeholder="e.g. Ali" />
+  <button class="primary" onclick="createRoom()">Create room</button>
+
+  <hr class="divider">
+
+  <label>Join with room code</label>
+  <input id="code" class="main" placeholder="e.g. AB12CD" maxlength="6"
+    style="text-transform:uppercase"
+    onkeydown="if(event.key==='Enter') joinRoom()" />
+  <button class="primary" onclick="joinRoom()">Join room</button>
+
+  <p id="error"></p>
+</div>
+
+<script src="ws.js"></script>
+<script>
+  let ws;
+
+  // ── Auto-detect server URL from the page origin ──────────────────────────
+  // If served over https (e.g. ngrok), use wss://; otherwise ws://
+  function defaultServerUrl() {
+    const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return proto + location.host;
+  }
+
+  async function init() {
+    // Ask the server if there's a public ngrok URL available
+    try {
+      const resp = await fetch('/_syncwatch/config');
+      const cfg  = await resp.json();
+      if (cfg.wsUrl) {
+        // ngrok is active — pre-fill with the public WSS URL
+        document.getElementById('server-url').value = cfg.wsUrl;
+        document.getElementById('share-box').style.display = 'block';
+        document.getElementById('share-url').value = cfg.publicUrl;
+        setConnPill('ngrok', '🌐 Public (ngrok)');
+      } else {
+        document.getElementById('server-url').value = defaultServerUrl();
+        setConnPill('lan', '🏠 Local network');
+      }
+    } catch {
+      document.getElementById('server-url').value = defaultServerUrl();
+      setConnPill('lan', '🏠 Local network');
+    }
+    connectWS();
+  }
+
+  function connectWS() {
+    ws = new SyncWatchWS(document.getElementById('server-url').value.trim());
+    registerHandlers();
+  }
+
+  function reconnectWS() {
+    ws = new SyncWatchWS(document.getElementById('server-url').value.trim());
+    registerHandlers();
+    document.getElementById('error').textContent = '';
+  }
+
+  function registerHandlers() {
+    ws.on('ROOM_CREATED', (msg) => {
+      save('host', msg.code, msg.peerId);
+      window.location.href = 'room.html';
+    });
+    ws.on('ROOM_JOINED', (msg) => {
+      save('watcher', msg.code, msg.peerId);
+      window.location.href = 'room.html';
+    });
+    ws.on('ERROR', (msg) => {
+      document.getElementById('error').textContent = msg.reason;
+    });
+  }
+
+  function save(role, code, peerId) {
+    localStorage.setItem('sw_role',   role);
+    localStorage.setItem('sw_code',   code);
+    localStorage.setItem('sw_id',     peerId);
+    localStorage.setItem('sw_name',   document.getElementById('name').value.trim());
+    localStorage.setItem('sw_server', document.getElementById('server-url').value.trim());
+  }
+
+  function setConnPill(cls, label) {
+    const pill = document.getElementById('conn-pill');
+    pill.className = 'conn-pill ' + cls;  // reset classes
+    // re-add base styles via id selector in CSS so class just adds color
+    pill.classList.add(cls);
+    document.getElementById('conn-label').textContent = label;
+  }
+
+  function copyShareUrl() {
+    const url = document.getElementById('share-url').value;
+    navigator.clipboard.writeText(url).then(() => {
+      document.getElementById('copy-btn').textContent = 'Copied!';
+      setTimeout(() => document.getElementById('copy-btn').textContent = 'Copy link', 2000);
+    });
+  }
+
+  function createRoom() {
+    const name = document.getElementById('name').value.trim();
+    if (!name) { document.getElementById('error').textContent = 'Enter your name first.'; return; }
+    ws.send({ type: 'CREATE_ROOM', displayName: name });
+  }
+
+  function joinRoom() {
+    const name = document.getElementById('name').value.trim();
+    const code = document.getElementById('code').value.trim().toUpperCase();
+    if (!name || !code) { document.getElementById('error').textContent = 'Enter your name and the room code.'; return; }
+    ws.send({ type: 'JOIN_ROOM', code, displayName: name });
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('syncwatch', {
+  getLanIP:     () => ipcRenderer.invoke('get-lan-ip'),
+  getTunnelUrl: () => ipcRenderer.invoke('get-tunnel-url'),
+  startTunnel:  () => ipcRenderer.invoke('start-tunnel'),
+  version:      process.env.npm_package_version || '1.0.0',
+  platform:     process.platform,
+
+  // Phase 2 — replaces postMessage/iframe/Tampermonkey playback control.
+  // client-react/src/hooks/useSync.js and client-react/src/components/
+  // Player.jsx feature-detect this object's presence to decide whether to
+  // use this path or fall back to the browser/iframe path.
+  playback: {
+    loadUrl:        (url)      => ipcRenderer.invoke('playback:load-url', url),
+    command:        (action, seconds) => ipcRenderer.invoke('playback:command', { action, seconds }),
+    getCurrentTime: ()         => ipcRenderer.invoke('playback:get-current-time'),
+    setBounds:      (rect)     => ipcRenderer.invoke('playback:set-bounds', rect),
+    // Phase 3 stub — no main-process code sends on this channel yet (see
+    // electron/playback.js), but the subscribe surface exists now so
+    // useSync.js can already be written against its final shape.
+    onVideoEvent: (callback) => {
+      const wrapped = (_event, payload) => callback(payload);
+      ipcRenderer.on('playback:video-event', wrapped);
+      return () => ipcRenderer.removeListener('playback:video-event', wrapped);
+    },
+  },
+});

@@ -1,0 +1,49 @@
+{
+  "webview": {
+    "loaded": true,
+    "blocked": false,
+    "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub",
+    "bodySnippet": "Skip to content\nNavigation Menu\nSign in\nThe future of building happens together\n\nTools and trends evolve, but collaboration endures. With GitHub, developers, agents, and code come together on one plat",
+    "videoFound": true
+  },
+  "webContentsView": {
+    "loaded": true,
+    "blocked": false,
+    "title": "GitHub · Change is constant. GitHub keeps you ahead. · GitHub",
+    "bodySnippet": "Skip to content\nNavigation Menu\nSign in\nThe future of building happens together\n\nTools and trends evolve, but collaboration endures. With GitHub, developers, agents, and code come together on one plat",
+    "videoFound": true,
+    "framesInSubtree": [
+      "https://github.com/"
+    ]
+  },
+  "webviewNested": {
+    "loaded": true,
+    "blocked": false,
+    "title": "nested iframe test fixture",
+    "bodySnippet": "Outer page (loaded via webview/WebContentsView). Below is a nested iframe pointing at github.com — a domain confirmed to send frame-ancestors 'none'. This simulates an aggregator site embedding a play",
+    "videoFound": false,
+    "nestedFrameFound": true,
+    "nestedFrameUrl": "https://github.com/",
+    "nestedFrameContent": {
+      "bodySnippet": "",
+      "title": ""
+    }
+  },
+  "webContentsViewNested": {
+    "loaded": true,
+    "blocked": false,
+    "title": "nested iframe test fixture",
+    "bodySnippet": "Outer page (loaded via webview/WebContentsView). Below is a nested iframe pointing at github.com — a domain confirmed to send frame-ancestors 'none'. This simulates an aggregator site embedding a play",
+    "videoFound": false,
+    "nestedFrameFound": true,
+    "nestedFrameUrl": "https://github.com/",
+    "nestedFrameContent": {
+      "bodySnippet": "",
+      "title": ""
+    }
+  },
+  "videoControlTest": {
+    "playResult": "played",
+    "currentTimeAfterPlay": 0
+  }
+}

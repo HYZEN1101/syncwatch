@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SyncWatch — Phase 1 Playback Mechanism Test</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #111; color: #eee; }
+    .bar { padding: 8px 12px; background: #222; font-size: 13px; }
+    .panels { display: flex; }
+    .panel { flex: 1; height: 360px; border-right: 1px solid #333; border-bottom: 1px solid #333; }
+    .label { padding: 4px 8px; font-size: 12px; background: #1a1a1a; color: #999; }
+    webview { width: 100%; height: 100%; }
+    #slotB, #slotD { width: 100%; height: 100%; background: #050505; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    Row 1: Left = &lt;webview&gt; tag &nbsp;|&nbsp; Right = WebContentsView (sibling view, not DOM-nested). Both load the same top-level fixture.
+  </div>
+  <div class="panels">
+    <div class="panel">
+      <div class="label">Panel A — webview</div>
+      <webview id="webviewA" src="https://github.com"></webview>
+    </div>
+    <div class="panel">
+      <div class="label">Panel B — WebContentsView (main process draws over this area)</div>
+      <div id="slotB"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    Row 2: same local page in each, containing its OWN nested &lt;iframe src="github.com"&gt; — tests the real aggregator-style "nested player frame" case.
+  </div>
+  <div class="panels">
+    <div class="panel">
+      <div class="label">Panel C — webview loading a page with a nested iframe</div>
+      <webview id="webviewC" src="test-nested-iframe.html"></webview>
+    </div>
+    <div class="panel">
+      <div class="label">Panel D — WebContentsView loading the same nested-iframe page</div>
+      <div id="slotD"></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+client-react/node_modules/
+
+# Build outputs
+dist/
+client-react/dist/
+*.exe
+*.dmg
+*.AppImage
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
