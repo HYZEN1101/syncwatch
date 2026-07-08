@@ -65,21 +65,48 @@ function buildControlScript(action, seconds) {
       }
       const v = getVideo();
       if (!v) return { found: false };
+      // A single reassertion (below) isn't enough against a site that
+      // resumes playback on its own recurring timer rather than as a
+      // one-off reaction to our pause call — confirmed in testing: an
+      // isolated pause() held perfectly steady, then resumed right at the
+      // ~10s mark regardless of whether reassertion was involved, which
+      // points to a periodic "resume if paused" watchdog in the site's own
+      // code, not a reaction to us specifically. Reasserting a fixed number
+      // of times can never out-wait a recurring timer forever — instead,
+      // shadow the video's own .play() so ANY call to it (ours or the
+      // site's) is refused while we've told it to stay paused, and only
+      // let a real play through when WE'RE the one asking.
+      if (!v.__syncwatchGuardInstalled) {
+        v.__syncwatchGuardInstalled = true;
+        const __syncwatchOriginalPlay = v.play.bind(v);
+        v.play = function (...args) {
+          if (window.__syncwatchPauseGuardActive) return Promise.resolve();
+          return __syncwatchOriginalPlay(...args);
+        };
+      }
       switch (${actionLiteral}) {
-        case 'play':     v.play().catch(() => {}); break;
-        // Reasserted a couple times shortly after: some embed/aggregator
-        // sites auto-resume playback after ANY seek or pause (a "recovering
-        // from buffering" behavior that fires a beat later, asynchronously)
-        // — a single synchronous v.pause() can get silently overridden once
-        // that fires. Cheap and harmless if the site behaves normally.
+        case 'play':
+          window.__syncwatchPauseGuardActive = false;
+          v.play().catch(() => {});
+          break;
+        // Reasserted a couple times shortly after, on top of the guard
+        // above — belt-and-suspenders in case something resumes playback
+        // through a path other than calling v.play() directly (e.g.
+        // reloading the element's source).
         case 'pause':
+          window.__syncwatchPauseGuardActive = true;
           v.pause();
           setTimeout(() => v.pause(), 60);
           setTimeout(() => v.pause(), 300);
           break;
         case 'seek':     v.currentTime = ${secondsLiteral}; break;
-        case 'playfrom': v.currentTime = ${secondsLiteral}; v.play().catch(() => {}); break;
+        case 'playfrom':
+          window.__syncwatchPauseGuardActive = false;
+          v.currentTime = ${secondsLiteral};
+          v.play().catch(() => {});
+          break;
         case 'pauseat':
+          window.__syncwatchPauseGuardActive = true;
           v.currentTime = ${secondsLiteral};
           v.pause();
           setTimeout(() => v.pause(), 60);
@@ -139,6 +166,42 @@ function buildEventListenerScript() {
         report('timeupdate');
       });
       return { found: true };
+    })();
+  `;
+}
+
+// Temporary diagnostic: calls pause() then samples .paused/.currentTime
+// every 500ms for 10s, returning the full timeline. Exists to answer one
+// specific question without needing a separate DevTools window (which
+// turned out to be unreliable for a WebContentsView — opening it visibly
+// broke rendering in testing): does something external call .play() again
+// after we pause, and if so, roughly how long does it take? If `paused`
+// flips back to `false` partway through the log, that's the site itself
+// resuming playback — not a bug in how we're calling pause().
+function buildDebugPauseTestScript() {
+  return `
+    (function () {
+      function getVideo() {
+        const videos = [...document.querySelectorAll('video')];
+        if (!videos.length) return null;
+        return videos.reduce((best, v) => {
+          const area = v.offsetWidth * v.offsetHeight;
+          const bestArea = best.offsetWidth * best.offsetHeight;
+          return area > bestArea ? v : best;
+        });
+      }
+      const v = getVideo();
+      if (!v) return { found: false };
+      v.pause();
+      const log = [{ t: 0, paused: v.paused, currentTime: v.currentTime }];
+      return new Promise((resolve) => {
+        let i = 0;
+        const interval = setInterval(() => {
+          i += 1;
+          log.push({ t: i * 500, paused: v.paused, currentTime: v.currentTime });
+          if (i >= 20) { clearInterval(interval); resolve({ found: true, log }); }
+        }, 500);
+      });
     })();
   `;
 }
@@ -255,6 +318,10 @@ function createPlaybackController(win) {
     return runOnFirstFrameWithVideo(view.webContents, script) ?? { found: false };
   });
 
+  ipcMain.handle('playback:debug-pause-test', async () => {
+    return waitForVideoAndRun(view.webContents, buildDebugPauseTestScript(), 10, 250);
+  });
+
   ipcMain.handle('playback:set-bounds', (_event, rect) => {
     if (!rect) return false;
     view.setBounds({
@@ -273,7 +340,16 @@ function createPlaybackController(win) {
   // useSync.js's ongoing sync no longer depends on it, but it's harmless
   // and potentially useful for future reconnect-recovery logic.
 
-  return view;
+  return {
+    view,
+    // Opens DevTools for the ACTUAL video view — separate from the main
+    // window's own DevTools, since WebContentsView is a fully independent
+    // webContents. Needed for diagnosing site-specific playback behavior
+    // (e.g. a site auto-resuming after a programmatic pause) — inspecting
+    // the main window's console won't see this view's <video> element at
+    // all. Opens detached so it doesn't fight for space with the app.
+    openDevTools: () => view.webContents.openDevTools({ mode: 'detach' }),
+  };
 }
 
 module.exports = { createPlaybackController };

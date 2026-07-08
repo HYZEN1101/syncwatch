@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const http = require('http');
 const os   = require('os');
@@ -99,7 +99,17 @@ function createWindow() {
   // main window's own page, positioned by Player.jsx's ResizeObserver. See
   // electron/playback.js for the full rationale and HANDOFF_PHASE_1.md for
   // why this API was chosen over <webview>.
-  createPlaybackController(mainWindow);
+  const playback = createPlaybackController(mainWindow);
+
+  // Diagnostic shortcut: opens DevTools for the actual video view, not the
+  // main window. WebContentsView is a fully separate webContents — the
+  // regular DevTools (Ctrl+Shift+I on the main window) can't see into it at
+  // all, which matters when diagnosing site-specific playback behavior
+  // (e.g. a site auto-resuming after a programmatic pause). Registered
+  // per-window; cleaned up in window-all-closed below.
+  globalShortcut.register('CommandOrControl+Shift+P', () => {
+    playback.openDevTools();
+  });
 }
 
 // ── App lifecycle ──────────────────────────────────────────────────────────
@@ -120,6 +130,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  globalShortcut.unregisterAll();
   // Close tunnel cleanly
   if (tunnelInst) { try { tunnelInst.close(); } catch {} }
   if (process.platform !== 'darwin') app.quit();
