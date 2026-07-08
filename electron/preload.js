@@ -16,9 +16,10 @@ contextBridge.exposeInMainWorld('syncwatch', {
     command:        (action, seconds) => ipcRenderer.invoke('playback:command', { action, seconds }),
     getCurrentTime: ()         => ipcRenderer.invoke('playback:get-current-time'),
     setBounds:      (rect)     => ipcRenderer.invoke('playback:set-bounds', rect),
-    // Phase 3 stub — no main-process code sends on this channel yet (see
-    // electron/playback.js), but the subscribe surface exists now so
-    // useSync.js can already be written against its final shape.
+    // Phase 3: electron/playback.js forwards real <video> events here
+    // (play/pause/seeking/seeked/waiting/playing/ended/timeupdate) as they
+    // happen, via an injected listener script + a dedicated preload
+    // (electron/playback-preload.js) attached to the WebContentsView itself.
     onVideoEvent: (callback) => {
       const wrapped = (_event, payload) => callback(payload);
       ipcRenderer.on('playback:video-event', wrapped);

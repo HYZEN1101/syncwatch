@@ -29,8 +29,17 @@
 // aggregator/CDN-player nested iframes are typically more permissive (they
 // allow their specific known parent) — this should still be verified
 // against a couple of real domains from client/syncwatch-bridge.user.js's
-// @match list during this phase's manual testing.
+// @match list during manual testing.
+//
+// Phase 3 adds real event-driven sync: a persistent <video> listener is
+// injected once per page load (buildEventListenerScript below), reporting
+// play/pause/seeking/seeked/waiting/playing/ended/timeupdate back through
+// electron/playback-preload.js + the 'playback:internal-video-event' IPC
+// channel, forwarded here to the renderer over 'playback:video-event' (the
+// channel client-react/src/hooks/useSync.js already subscribes to via
+// preload.js's onVideoEvent — see HANDOFF_PHASE_3.md).
 
+const path = require('path');
 const { WebContentsView, ipcMain } = require('electron');
 
 // ── The injected control script ─────────────────────────────────────────────
@@ -58,10 +67,24 @@ function buildControlScript(action, seconds) {
       if (!v) return { found: false };
       switch (${actionLiteral}) {
         case 'play':     v.play().catch(() => {}); break;
-        case 'pause':    v.pause(); break;
+        // Reasserted a couple times shortly after: some embed/aggregator
+        // sites auto-resume playback after ANY seek or pause (a "recovering
+        // from buffering" behavior that fires a beat later, asynchronously)
+        // — a single synchronous v.pause() can get silently overridden once
+        // that fires. Cheap and harmless if the site behaves normally.
+        case 'pause':
+          v.pause();
+          setTimeout(() => v.pause(), 60);
+          setTimeout(() => v.pause(), 300);
+          break;
         case 'seek':     v.currentTime = ${secondsLiteral}; break;
         case 'playfrom': v.currentTime = ${secondsLiteral}; v.play().catch(() => {}); break;
-        case 'pauseat':  v.currentTime = ${secondsLiteral}; v.pause(); break;
+        case 'pauseat':
+          v.currentTime = ${secondsLiteral};
+          v.pause();
+          setTimeout(() => v.pause(), 60);
+          setTimeout(() => v.pause(), 300);
+          break;
         // '__read__' (or any unrecognized action) falls through here on
         // purpose — used by getCurrentTime() below to read state without
         // touching playback.
@@ -71,7 +94,56 @@ function buildControlScript(action, seconds) {
   `;
 }
 
-// Tries every frame in the loaded page (main frame first, matching the old
+// Injected once per page load (not per command). Attaches real <video>
+// event listeners and reports each one back through
+// window.syncwatchInternal.reportEvent (exposed by playback-preload.js) —
+// this is what makes sync event-driven instead of estimated. Idempotency
+// guard (window.__syncwatchListenersInstalled) means calling this more than
+// once on the same document (e.g. from both the did-finish-load AND
+// did-frame-finish-load triggers below) is harmless.
+function buildEventListenerScript() {
+  return `
+    (function () {
+      if (window.__syncwatchListenersInstalled) return { found: true };
+      function getVideo() {
+        const videos = [...document.querySelectorAll('video')];
+        if (!videos.length) return null;
+        return videos.reduce((best, v) => {
+          const area = v.offsetWidth * v.offsetHeight;
+          const bestArea = best.offsetWidth * best.offsetHeight;
+          return area > bestArea ? v : best;
+        });
+      }
+      const v = getVideo();
+      if (!v) return { found: false };
+      if (!window.syncwatchInternal) return { found: false, error: 'preload not attached in this frame' };
+
+      window.__syncwatchListenersInstalled = true;
+      function report(type) {
+        window.syncwatchInternal.reportEvent({
+          type, currentTime: v.currentTime, paused: v.paused,
+          duration: v.duration, timestamp: Date.now(),
+        });
+      }
+      ['play', 'pause', 'seeking', 'seeked', 'waiting', 'playing', 'ended'].forEach(evt => {
+        v.addEventListener(evt, () => report(evt));
+      });
+      // timeupdate fires very frequently (browser-dependent, often 4-66x/sec)
+      // — throttled client-side so we don't flood the IPC channel with a
+      // stream update the UI only needs a few times a second at most.
+      let lastTimeupdateReport = 0;
+      v.addEventListener('timeupdate', () => {
+        const now = Date.now();
+        if (now - lastTimeupdateReport < 300) return;
+        lastTimeupdateReport = now;
+        report('timeupdate');
+      });
+      return { found: true };
+    })();
+  `;
+}
+
+
 // bridge's "prefer the top frame's own video" behavior), running the given
 // script in each until one reports a video was found. A frame throwing
 // (e.g. torn down mid-call) is treated the same as "no video here" and we
@@ -117,12 +189,46 @@ function createPlaybackController(win) {
   initialized = true;
 
   const view = new WebContentsView({
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      // Lets the listener-installation script (and its reportEvent bridge)
+      // run in nested iframes too, not just the top document — needed for
+      // the aggregator/CDN-player case where the actual <video> lives in a
+      // child frame the outer page doesn't control.
+      nodeIntegrationInSubFrames: true,
+      preload: path.join(__dirname, 'playback-preload.js'),
+    },
   });
   win.contentView.addChildView(view);
   // Starts collapsed — Player.jsx's ResizeObserver reports the real bounds
   // once the placeholder element it tracks actually mounts and has a size.
   view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Phase 3: forward every reported video event straight through to the
+  // renderer. No buffering/coalescing here — buildEventListenerScript
+  // already throttles the high-frequency timeupdate case client-side, so
+  // whatever arrives here is meant to be sent as-is.
+  view.webContents.on('ipc-message', (_event, channel, payload) => {
+    if (channel !== 'playback:internal-video-event') return;
+    win.webContents.send('playback:video-event', payload);
+  });
+
+  // Installs the persistent listener script once a page (or a nested frame
+  // within it) finishes loading. Reuses the same retry-budget helper as
+  // commands do, since a lazily-rendered player may not have its <video> tag
+  // in the DOM yet right when the navigation event fires.
+  function installEventListeners() {
+    waitForVideoAndRun(view.webContents, buildEventListenerScript()).catch(() => {
+      // Best-effort — a failed install here just means sync stays on
+      // whatever state it last had; it doesn't block commands from working.
+    });
+  }
+  view.webContents.on('did-finish-load', installEventListeners);
+  view.webContents.on('did-frame-finish-load', (_event, isMainFrame) => {
+    if (isMainFrame) return; // already covered by did-finish-load above
+    installEventListeners();
+  });
 
   ipcMain.handle('playback:load-url', async (_event, url) => {
     if (typeof url !== 'string' || !url) return { ok: false, error: 'invalid url' };
@@ -160,17 +266,12 @@ function createPlaybackController(win) {
     return true;
   });
 
-  // Phase 3 stub: the channel exists so the renderer can already register a
-  // listener via preload's onVideoEvent(), but nothing pushes to it yet.
-  // Real event capture (play/pause/seeking/seeked/waiting/playing/ended/
-  // timeupdate) needs a persistent in-page listener forwarding through some
-  // channel back to main — executeJavaScript alone only gives one-shot
-  // results, it can't push a live event stream. Left for Phase 3 to design
-  // properly (candidates: a preload attached to the view with
-  // nodeIntegrationInSubFrames, or polling via getCurrentTime on an
-  // interval as a simpler first cut).
-  // ipcMain does NOT have a handler for 'playback:video-event' — it's a
-  // send-channel (main → renderer), not invoke/handle.
+  // Phase 3: real event forwarding is wired above (ipc-message listener +
+  // installEventListeners). This handler is left in place as a cheap
+  // on-demand poll for anything that wants a one-off "what's the actual
+  // state right now" read without waiting for the next pushed event —
+  // useSync.js's ongoing sync no longer depends on it, but it's harmless
+  // and potentially useful for future reconnect-recovery logic.
 
   return view;
 }

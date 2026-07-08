@@ -21,9 +21,35 @@ export function useSync(ws, code, role, onStreamLoaded) {
   const [status, setStatus] = useState('Waiting for stream…');
   const [hasFrame, setHasFrame] = useState(false);
 
+  // Phase 3: real video-event state, Electron only. `playConfirmed` tracks
+  // whether the most recent play/playfrom command actually resulted in a
+  // real 'playing' event — if it hasn't within playConfirmTimeout below,
+  // that's exactly the "autoplay was blocked" case the original migration
+  // doc calls out as previously undetectable (estimated sync had no way to
+  // know a play() call silently failed). `buffering` is a separate flag so
+  // a 'waiting' event doesn't get permanently overwritten by unrelated
+  // status text — the browser/web (non-Electron) path never touches either
+  // of these, since there's no event feed to drive them.
+  const playConfirmed      = useRef(true);
+  const playConfirmTimeout = useRef(null);
+  const buffering          = useRef(false);
+
+  // estimatedTime() while playing: startedAt.current is always set as
+  // `Date.now() - correctedTime * 1000` (see applyState/onVideoEvent below),
+  // which already fully encodes the absolute playback position — reading
+  // back `(Date.now() - startedAt.current) / 1000` alone recovers exactly
+  // that position plus real elapsed time since. localTime.current is only
+  // meaningful as a resting value while PAUSED (returned directly below);
+  // it must NOT also be added here. It used to be added unconditionally,
+  // which double-counted the position on every play-after-pause/seek where
+  // localTime.current was already non-zero — invisible on a very first play
+  // (localTime.current starts at 0, so the bug added nothing), but on every
+  // subsequent pause→play cycle it added the last known position on top of
+  // an already-absolute value, roughly doubling the estimate each time and
+  // compounding further on each further cycle.
   function estimatedTime() {
     if (!localPlaying.current || !startedAt.current) return localTime.current;
-    return localTime.current + (Date.now() - startedAt.current) / 1000;
+    return (Date.now() - startedAt.current) / 1000;
   }
 
   function fmtTime(s) {
@@ -31,8 +57,34 @@ export function useSync(ws, code, role, onStreamLoaded) {
     return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
   }
 
+  // Recomputes the human-readable status from current known state — used
+  // both by applyState (issuing a command) and by the video-event handler
+  // (confirming/correcting one), so the two don't fight over the status
+  // text when a real event arrives shortly after a command was sent.
+  function refreshStatus() {
+    if (buffering.current) { setStatus('⏳ Buffering…'); return; }
+    if (!playConfirmed.current) { setStatus('⚠ Playback may be blocked — click the video'); return; }
+    setStatus(localPlaying.current ? '▶ In Sync' : `⏸ Paused at ${fmtTime(localTime.current)}`);
+  }
+
   function iframeCmd(action, seconds) {
     if (isElectron) {
+      // Arm the "did this actually start playing" check for play-ish
+      // commands. Cleared either by a real 'playing' event (see the
+      // video-event subscription below) or superseded by the next command.
+      if (action === 'play' || action === 'playfrom') {
+        playConfirmed.current = false;
+        clearTimeout(playConfirmTimeout.current);
+        playConfirmTimeout.current = setTimeout(() => {
+          if (!playConfirmed.current) refreshStatus();
+        }, 2500);
+      } else if (action === 'pause' || action === 'pauseat') {
+        // A pause makes the "is it playing yet" question moot — stop
+        // waiting on it so a stale timeout can't fire a false "blocked"
+        // status after the user has already paused.
+        playConfirmed.current = true;
+        clearTimeout(playConfirmTimeout.current);
+      }
       // Fire-and-forget from the caller's perspective, same as the old
       // postMessage call — errors are logged, not thrown, so a single
       // failed command (e.g. no <video> found yet) doesn't break sync flow.
@@ -63,6 +115,12 @@ export function useSync(ws, code, role, onStreamLoaded) {
   // trick is needed on that path.
   const loadUrl = useCallback((url) => {
     if (isElectron) {
+      // A fresh load means whatever the previous document's video was doing
+      // is no longer relevant — clear buffering/blocked flags so they don't
+      // linger on screen until the new page's events start arriving.
+      buffering.current      = false;
+      playConfirmed.current  = true;
+      clearTimeout(playConfirmTimeout.current);
       window.syncwatch.playback.loadUrl(url).catch(err => {
         console.warn('[useSync] Electron loadUrl failed:', err);
       });
@@ -88,7 +146,17 @@ export function useSync(ws, code, role, onStreamLoaded) {
       localPlaying.current = false;
       localTime.current    = correctedTime;
       startedAt.current    = null;
-      iframeCmd('pauseat', correctedTime);
+      // Only force an exact-time seek if drift is large enough to matter —
+      // same asymmetry already used above for play/playfrom. A forced seek
+      // on every ordinary pause was the trigger for a real bug: some embed
+      // sites auto-resume playback shortly after any seek, silently
+      // overriding our pause a beat later. Skipping the seek when we're
+      // already close enough avoids tripping that behavior in the first
+      // place (see electron/playback.js's buildControlScript for the
+      // defensive reassertion that also guards the case where a seek is
+      // genuinely needed).
+      if (drift > DRIFT_THRESHOLD) iframeCmd('pauseat', correctedTime);
+      else iframeCmd('pause');
       setStatus(`⏸ Paused at ${fmtTime(correctedTime)}`);
     } else if (state === 'seek') {
       localTime.current = correctedTime;
@@ -129,6 +197,94 @@ export function useSync(ws, code, role, onStreamLoaded) {
     });
     return () => { offVS(); offSU(); };
   }, [ws, role, applyState, onStreamLoaded, loadUrl]);
+
+  // Phase 3: subscribe to real <video> events pushed from
+  // electron/playback.js (see HANDOFF_PHASE_3.md for the full path this
+  // takes — injected listener script → playback-preload.js →
+  // 'playback:internal-video-event' → forwarded here as
+  // 'playback:video-event'). This is what makes localTime/localPlaying
+  // ground-truth-corrected instead of purely wall-clock-estimated, and is
+  // the only thing that can detect buffering or a silently-blocked
+  // autoplay — neither was previously visible to the app at all.
+  //
+  // Deliberately does NOT re-broadcast any of this over the WebSocket
+  // (VIDEO_STATE stays exactly as it was, per the Option A decision in
+  // HANDOFF_PHASE_3.md) — this only corrects this client's OWN local
+  // tracking and status display. Re-broadcasting native events would risk
+  // feedback loops (everyone's own video firing events back at the room)
+  // for a problem that doesn't need solving yet.
+  //
+  // No-op entirely on the browser/web build — there's no event feed there,
+  // onVideoEvent doesn't exist, and the estimated-time behavior from before
+  // Phase 3 is unchanged for that path.
+  useEffect(() => {
+    if (!isElectron) return;
+
+    const unsubscribe = window.syncwatch.playback.onVideoEvent((payload) => {
+      const { type, currentTime, paused } = payload || {};
+      if (typeof currentTime !== 'number') return;
+
+      switch (type) {
+        case 'playing':
+          buffering.current     = false;
+          playConfirmed.current = true;
+          clearTimeout(playConfirmTimeout.current);
+          localPlaying.current  = true;
+          localTime.current     = currentTime;
+          startedAt.current     = Date.now() - currentTime * 1000;
+          refreshStatus();
+          break;
+        case 'pause':
+          buffering.current    = false;
+          localPlaying.current = false;
+          localTime.current    = currentTime;
+          startedAt.current    = null;
+          refreshStatus();
+          break;
+        case 'seeking':
+          // Don't touch status yet — 'seeked' below confirms the seek
+          // actually landed. A slow seek can sit in 'seeking' for a bit on
+          // a poor connection; showing buffering-like feedback here would
+          // be reasonable future polish but isn't required for this phase.
+          break;
+        case 'seeked':
+          localTime.current = currentTime;
+          startedAt.current = (paused === false) ? Date.now() - currentTime * 1000 : null;
+          refreshStatus();
+          break;
+        case 'waiting':
+          buffering.current = true;
+          refreshStatus();
+          break;
+        case 'ended':
+          buffering.current     = false;
+          localPlaying.current  = false;
+          startedAt.current     = null;
+          setStatus('■ Ended');
+          break;
+        case 'timeupdate':
+          // Ground-truth drift correction, silent — updating React state
+          // here too (setStatus) would force a re-render several times a
+          // second during normal playback for no visible benefit, since
+          // the status text doesn't actually change between timeupdates.
+          localTime.current = currentTime;
+          if (localPlaying.current) startedAt.current = Date.now() - currentTime * 1000;
+          break;
+        default:
+          break;
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+      clearTimeout(playConfirmTimeout.current);
+    };
+    // refreshStatus/setStatus/fmtTime are stable across renders in
+    // practice (no external deps of their own); omitting them here avoids
+    // re-subscribing on every render while keeping the effect's actual
+    // dependency (isElectron never changes at runtime) accurate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
