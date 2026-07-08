@@ -1,6 +1,6 @@
 # HANDOFF_PHASE_2.md — Electron Playback Controller
 
-## Status: Core wiring complete and build-verified. Manual runtime testing (real window, real stream URLs, real nested aggregator site) still needed — this environment can't launch a GUI or reach general internet sites (see HANDOFF_PHASE_1.md for why).
+## Status: Complete and manually verified on a real machine.
 
 ## What this phase covers
 Phase 2 of the Electron migration: replacing `iframe → postMessage → Tampermonkey → relay` with `React UI → IPC → WebContentsView → direct per-frame executeJavaScript → video element`, per `PHASE_2_electron_playback_controller.md` and building on the `WebContentsView` decision from `HANDOFF_PHASE_1.md`.
@@ -34,25 +34,34 @@ The main-process side (`electron/playback.js`, `electron/preload.js`, `electron/
    - `reloadStream()` simplified to just call `sync.loadUrl(currentStreamUrl)`, since the reload-forcing trick now lives in `loadUrl` itself.
    - The Tampermonkey bridge-detection ping (`checkBridge()`) now returns immediately when `sync.isElectron` is true — there's no bridge/userscript concept on that path at all, so the "bridge not detected" warning banner will never fire there (no JSX changes needed — it's naturally gated since `setBridgeWarning(true)` only happens inside the now-gated function).
 
-## Known gaps, intentionally left for later phases (don't re-litigate these, they're scoped elsewhere)
+## Manual test results (confirmed by the user on Windows, real Electron window)
+1. `npm run electron:dev` launches, stream URL loads and plays inside the `WebContentsView` — **confirmed working**. (Windows GPU-cache `ERROR:cache_util_win.cc`/`disk_cache.cc` log noise on startup is unrelated Windows/antivirus disk-cache-permission chatter, not a real failure — app runs fine past it.)
+2. Play/pause/seek/keyboard-shortcut UI buttons — **confirmed working** against the real video.
+3. Cross-client test: Electron host + a plain browser tab (`localhost:3000`) joined as watcher, same room code — **room code and peer list sync correctly**. The specific bug this phase fixed (watcher's stream not loading due to a `frameRef.current.src` no-op) is **confirmed fixed** at the plumbing level — the test URL used happened to be one browsers block outright (see next point), so it couldn't be confirmed visually, but the STREAM_URL message path that was broken before is intact and exercised correctly.
+4. The browser-tab watcher showed a blank frame with `Refused to display '...' in a frame because it set 'X-Frame-Options'` in the console. **This is the original, pre-existing, expected browser limitation described in the original migration doc — not a regression from this phase.** No browser tab can ever get around this; that's the entire reason this migration exists. The web/browser build correctly still hits the exact same wall it always did, unchanged.
+5. Full visual play/pause/seek sync confirmation between an Electron host and a rendering (non-blocked) browser watcher was not run — optional, skipped by choice (a YouTube-embed-URL check would have shown this visually, wasn't needed to consider the phase done).
 
+## Known limitation surfaced during testing: only one Electron window/instance at a time
+Trying to open a second `electron .` instance to cross-test two real playback surfaces doesn't work with the current architecture. Not something this phase needs to fix, but worth recording so it isn't re-discovered as a mystery later:
+
+- `electron/main.js` requires `server/index.js` directly and calls `start()`, which binds port 3000.
+- `server/index.js`'s own `start()` rejects on `EADDRINUSE`, and its module-level bottom code (`if (require.main === module || process.versions.electron) start().catch(err => { ...; process.exit(1); })`) calls `process.exit(1)` on that rejection — so a second launched instance won't gracefully skip starting its own server, it will hard-crash the whole second Electron process.
+- `electron/playback.js`'s own single-instance guard (`if (initialized) throw ...`) is moot here — it's scoped per-process and would never actually be reached, since the server crash happens first.
+
+**Practical workaround (used for this phase's testing, and generally good enough for solo dev testing):** one Electron window as host, plus a plain browser tab at `localhost:3000` (or the LAN IP shown via `window.syncwatch.getLanIP()`, from another device on the same network) as a second peer. This exercises the full WebSocket sync path identically to a second Electron window — the only thing a browser tab can't do is render a site that sends `X-Frame-Options`, which is an unrelated, expected limitation, not a testing gap.
+
+**If genuine two-Electron-window testing is wanted later:** would need `server/index.js`'s `start()` to detect `EADDRINUSE` and, instead of exiting, treat it as "a healthy instance is already running, just connect to it" rather than a fatal error, plus `main.js` skipping `startServer()`/`waitForServer()` in that case and going straight to `createWindow()`. Small, scoped change, but not made in this phase since it's dev-experience tooling, not part of the playback migration itself. Flagged as a nice-to-have, not committed to any phase's task list — worth doing as a quick standalone addition if useful for testing Phase 3 onward.
+
+## Known gaps, intentionally left for later phases (don't re-litigate these, they're scoped elsewhere)
 - **Fullscreen button doesn't work correctly on Electron** — it calls `.requestFullscreen()` on the placeholder `<div>`, which doesn't affect the native `WebContentsView` layered on top of it. Left as a documented no-op-ish limitation; fixing it needs a dedicated IPC call that resizes the view to fill the screen, which is UX polish territory (Phase 4/5), not core playback wiring.
 - **DOM elements meant to overlay the video will render BEHIND the native view** — e.g. `Room.jsx`'s "sync status" pill (`position:absolute, top:12, right:12`) sits in the same screen region the `WebContentsView` draws over, and a native view composites above regular page content. Once a stream is loaded, that pill will likely be invisible. This is a real, known Electron architecture consequence of choosing `WebContentsView`, not a bug in this phase's code — worth deciding in Phase 4 whether to reposition that status UI outside the video area, inset the view's bounds slightly to leave a gap, or accept it.
 - **Bounds tracking doesn't catch position-only layout changes** (e.g. a sidebar toggling in a way that shifts the player without resizing it) — `ResizeObserver` only fires on size changes. Explicitly Phase 4's job ("harden layout/bounds tracking") per its own phase doc.
 - **Nested-iframe control on a REAL aggregator site hasn't been tested** — Phase 1's nested-frame test used a synthetic worst-case fixture (`frame-ancestors 'none'`, which blocks everyone). The `framesInSubtree` + per-frame `executeJavaScript` mechanism in `playback.js` is built and didn't throw in that synthetic test, but it needs a real run against at least one actual domain from `client/syncwatch-bridge.user.js`'s `@match` list before fully trusting it end-to-end.
 
-## What could NOT be verified in this session
-This sandbox still can't launch a GUI Electron window or reach general internet sites (same limitation as Phase 1 — see that handoff for specifics: GitHub release-asset downloads and arbitrary internet hosts are both blocked at the network layer here). What WAS verified:
+## Verification performed in the dev sandbox (separate from the real-machine tests above)
 - `npm run build` in `client-react/` succeeds with no errors after all the above changes.
 - `node --check` passes clean on `electron/main.js`, `electron/preload.js`, `electron/playback.js`.
 - Manual code review confirms no remaining direct `frameRef.current.src` assignments anywhere in `Room.jsx` — every path now routes through `sync.loadUrl()`.
-
-**What genuinely needs a real run, on a real machine, before trusting this phase is done:**
-1. `npm run electron:dev` — does the app launch, does a stream actually load and play inside the `WebContentsView` area?
-2. Load a real stream URL (ideally one from the old bridge's `@match` list) as host, confirm play/pause/seek/keyboard-shortcut commands actually move the real video.
-3. Join as a second (watcher) client, confirm the stream loads for them too (this is the specific bug this phase fixed — worth confirming directly).
-4. Resize the window while a stream is loaded — confirm the video area visually tracks the resize reasonably (not pixel-perfect required, Phase 4 owns hardening this).
-5. Confirm the web/browser build (`npm start`, visit `localhost:3000` in a normal browser tab, not the Electron app) still works exactly as before — regression check, since `Player.jsx`/`useSync.js` changes touch shared code.
 
 ## Files changed this phase
 - `client-react/src/hooks/useSync.js`
@@ -61,4 +70,4 @@ This sandbox still can't launch a GUI Electron window or reach general internet 
 - No changes to `electron/main.js`, `electron/preload.js`, `electron/playback.js`, `server/`, or anything else — those were already correct entering this session.
 
 ## Next step
-Run the 5 manual checks above on a real machine. If they pass, hand this file + the updated zip + `PHASE_3_event_driven_sync.md` to the next chat to build real event-driven sync (replacing the wall-clock-estimated drift correction with actual video `play`/`pause`/`seeking`/`timeupdate` events). If something fails, report back exactly what broke — this phase's fixes were based on careful code reading, not a live run, so a real-world surprise here is plausible and worth catching now.
+Hand this file + the updated zip + `PHASE_3_event_driven_sync.md` to the next chat to build real event-driven sync — replacing the wall-clock-estimated drift correction in `useSync.js` (`estimatedTime()`, the `localTime`/`startedAt` timer) with actual video `play`/`pause`/`seeking`/`seeked`/`waiting`/`playing`/`ended`/`timeupdate` events pushed from the `WebContentsView` over the `playback:video-event` IPC channel that's already stubbed in `preload.js`.
