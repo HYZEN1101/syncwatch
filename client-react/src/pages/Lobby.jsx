@@ -241,7 +241,7 @@ export function Lobby({ ws, onJoined }) {
           {/* Name */}
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
             <label style={{ fontSize:13, fontWeight:700, color:'var(--color-on-surface-variant)', paddingLeft:2, display:'flex', alignItems:'center', gap:5 }}>
-              <span className="material-symbols-outlined" style={{ fontSize:15 }}>person</span> Your name
+              <span className="material-symbols-outlined" style={{ sfontSize:15 }}>person</span> Your name
             </label>
             <input className="sw-input" value={name} onChange={e=>setName(e.target.value)}
               placeholder="Enter your nickname" onKeyDown={e=>e.key==='Enter'&&createRoom()} />
