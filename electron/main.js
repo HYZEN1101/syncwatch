@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain, globalShortcut, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const os   = require('os');
@@ -114,6 +114,18 @@ function createWindow() {
   globalShortcut.register('CommandOrControl+Shift+P', () => {
     playback.openDevTools();
   });
+
+  // Menu.setApplicationMenu(null) above removes Electron's default menu
+  // entirely, including the keyboard shortcuts that used to come along
+  // with it for free (Ctrl+Shift+I for DevTools, Ctrl+R to reload) — worth
+  // keeping those explicitly since they're genuinely useful for debugging,
+  // same pattern as the playback-DevTools shortcut above.
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    mainWindow?.webContents.toggleDevTools();
+  });
+  globalShortcut.register('CommandOrControl+R', () => {
+    mainWindow?.webContents.reload();
+  });
 }
 
 // ── Auto-update ────────────────────────────────────────────────────────────
@@ -165,6 +177,13 @@ function initAutoUpdate() {
 // ── App lifecycle ──────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // The default Electron menu (File/Edit/View/Window/Help) is pure
+  // leftover clutter here — nothing in this app wires up any custom menu
+  // items, and it visually clashes with the app's own themed header row
+  // right below it. Removing it entirely rather than trying to re-theme a
+  // native OS menu bar (which isn't meaningfully stylable anyway).
+  Menu.setApplicationMenu(null);
+
   try {
     startServer();
     await waitForServer();

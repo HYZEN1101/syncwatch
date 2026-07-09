@@ -466,12 +466,10 @@ export function Room({ ws, onLeave }) {
       <FloralDeco />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header style={{
+      <header className="app-header" style={{
         height:52, display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'0 16px', flexShrink:0, position:'relative', zIndex:10,
-        background:'rgba(255,247,250,0.93)', backdropFilter:'blur(16px)',
-        borderBottom:'1px solid rgba(222,191,194,0.35)',
-        boxShadow:'0 1px 10px rgba(232,96,122,0.07)',
+        backdropFilter:'blur(16px)',
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <span style={{ fontSize:16, fontWeight:800, color:'var(--color-primary)', letterSpacing:'-0.01em' }}>

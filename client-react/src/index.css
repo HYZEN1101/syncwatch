@@ -154,6 +154,27 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
+/* ── Room header bar ──────────────────────────── */
+/* Was previously hardcoded as inline styles directly on the <header> in
+   Room.jsx — those literal rgba() values never changed with the .dark
+   class, so the header stayed light-themed regardless of the theme
+   toggle, unlike everything else in it (which already used var(--color-*)
+   custom properties). Pulled out into its own class, same light/dark-pair
+   pattern as .glass-card above, so it actually follows the theme now. */
+.app-header {
+  background: rgba(255, 247, 250, 0.93);
+  border-bottom: 1px solid rgba(222, 191, 194, 0.35);
+  box-shadow: 0 1px 10px rgba(232, 96, 122, 0.07);
+}
+.dark .app-header {
+  /* Matches --color-surface's dark value (#1a1020) at the same alpha the
+     light version uses against its own --color-surface (#fff7fa), rather
+     than an unrelated one-off color. */
+  background: rgba(26, 16, 32, 0.93);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
+}
+
 /* ── Petal divider SVG ────────────────────────── */
 .petal-divider {
   display: flex; align-items: center; gap: 8px;

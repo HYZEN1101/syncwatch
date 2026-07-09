@@ -78,7 +78,7 @@ export function Lobby({ ws, onJoined }) {
       window.syncwatch.getLanIP().then(ip => ip && setLanIP(ip));
       window.syncwatch.getTunnelUrl().then(u => u && setTunnelUrl(u));
     } else {
-      fetch('/_syncwatch/config').then(r=>r.jsnon()).then(cfg => { if (cfg.publicUrl) setShareUrl(cfg.publicUrl); }).catch(()=>{});
+      fetch('/_syncwatch/config').then(r=>r.json()).then(cfg => { if (cfg.publicUrl) setShareUrl(cfg.publicUrl); }).catch(()=>{});
     }
   }, []);
 
