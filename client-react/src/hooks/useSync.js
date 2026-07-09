@@ -20,6 +20,13 @@ export function useSync(ws, code, role, onStreamLoaded) {
   const startedAt    = useRef(null);
   const [status, setStatus] = useState('Waiting for stream…');
   const [hasFrame, setHasFrame] = useState(false);
+  // Phase 4: distinct from the generic status text — true when a page
+  // loaded successfully but no <video> element was ever found on it after
+  // the full retry window (electron/playback.js's waitForVideoAndRun gives
+  // up after ~10s). Separate from loadFailed (Room.jsx) which covers the
+  // page not loading AT ALL — these are different failure modes with
+  // different likely causes/fixes.
+  const [videoNotFound, setVideoNotFound] = useState(false);
 
   // Phase 3: real video-event state, Electron only. `playConfirmed` tracks
   // whether the most recent play/playfrom command actually resulted in a
@@ -121,14 +128,24 @@ export function useSync(ws, code, role, onStreamLoaded) {
       buffering.current      = false;
       playConfirmed.current  = true;
       clearTimeout(playConfirmTimeout.current);
-      window.syncwatch.playback.loadUrl(url).catch(err => {
+      setVideoNotFound(false);
+      return window.syncwatch.playback.loadUrl(url).catch(err => {
         console.warn('[useSync] Electron loadUrl failed:', err);
+        return { ok: false, error: err?.message || String(err) };
       });
-      return;
     }
-    if (!frameRef.current) return;
+    if (!frameRef.current) return Promise.resolve({ ok: true });
     frameRef.current.src = 'about:blank';
-    setTimeout(() => { if (frameRef.current) frameRef.current.src = url; }, 50);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (frameRef.current) frameRef.current.src = url;
+        // The browser path has no equivalent success/failure signal here —
+        // Player.jsx's iframe onError prop already covers that case
+        // separately (Room.jsx's loadFailed state) — so this just resolves
+        // once the src swap has actually happened.
+        resolve({ ok: true });
+      }, 50);
+    });
   }, []);
 
   const applyState = useCallback((state, serverTime, serverTimestamp) => {
@@ -222,6 +239,17 @@ export function useSync(ws, code, role, onStreamLoaded) {
 
     const unsubscribe = window.syncwatch.playback.onVideoEvent((payload) => {
       const { type, currentTime, paused } = payload || {};
+
+      // A real event of any kind proves a video WAS found on the current
+      // page — clears a stale "couldn't find a video" flag left over from
+      // an earlier frame/navigation, even though the message that sets it
+      // (below) can't itself know when a later, successful frame arrives.
+      if (type !== 'no-video-found') setVideoNotFound(false);
+
+      if (type === 'no-video-found') {
+        setVideoNotFound(true);
+        return;
+      }
       if (typeof currentTime !== 'number') return;
 
       switch (type) {
@@ -298,5 +326,5 @@ export function useSync(ws, code, role, onStreamLoaded) {
     return () => document.removeEventListener('keydown', onKey);
   }, [sendPlay, sendPause, sendSeek]);
 
-  return { frameRef, status, hasFrame, setHasFrame, sendPlay, sendPause, sendSeek, loadUrl, isElectron };
+  return { frameRef, status, hasFrame, setHasFrame, sendPlay, sendPause, sendSeek, loadUrl, isElectron, applyState, videoNotFound, setVideoNotFound };
 }

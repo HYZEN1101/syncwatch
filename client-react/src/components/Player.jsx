@@ -27,43 +27,72 @@ export function Player({ frameRef, canControl, hasFrame, onLoad, onError }) {
 
   // Electron only: WebContentsView isn't part of the DOM and has no size or
   // position of its own — main process has to be told exactly where to draw
-  // it, over IPC, every time this changes. Tracks the placeholder div's live
-  // bounding rect via ResizeObserver (catches size changes) plus a window
-  // resize listener (catches viewport changes even when this element's own
-  // size doesn't). Collapses to zero bounds whenever hasFrame is false, so
-  // the native view doesn't render on top of the "no stream loaded" empty
-  // state, and on unmount, so it doesn't linger when navigating away.
+  // it, over IPC, every time this changes. Collapses to zero bounds
+  // whenever hasFrame is false, so the native view doesn't render on top of
+  // the "no stream loaded" empty state, and on unmount, so it doesn't
+  // linger when navigating away.
   //
-  // Known gap, left for Phase 4 ("harden layout/bounds tracking") to fully
-  // close: a position-only change with no size change — e.g. a sidebar
-  // toggling in a way that shifts this element without resizing it — won't
-  // trigger either listener here. Also known: any DOM element meant to
-  // visually overlay the video itself (e.g. Room.jsx's "sync status" pill)
-  // will render BEHIND the native view once bounds are non-zero, since
-  // WebContentsView composites above regular page content within its
-  // bounds. That's a real UX rough edge, intentionally not solved in this
-  // phase — Phase 2 owns making playback *work*, not full visual polish.
+  // Phase 4: a ResizeObserver alone (Phase 2's original approach) only
+  // fires on SIZE changes — a position-only shift (e.g. a sidebar toggling
+  // in a way that moves this element without resizing it) never triggered
+  // an update, which was an explicitly documented gap. Fixed here with a
+  // continuous requestAnimationFrame loop that re-reads the real bounding
+  // rect every frame and only calls setBounds when something actually
+  // changed (rounded to whole pixels, since sub-pixel layout jitter would
+  // otherwise cause a constant stream of no-op IPC calls with nothing
+  // visibly different on screen) — this catches ANY layout change
+  // (position or size, from a sidebar toggle, a CSS transition, a window
+  // drag, anything) rather than needing to enumerate every possible
+  // trigger. ResizeObserver + the window resize listener are kept as
+  // harmless immediate triggers alongside it, not because the loop needs
+  // help catching those cases, but because they fire the very same frame
+  // something happens rather than waiting up to one animation frame.
+  //
+  // Remaining known gap: any DOM element meant to visually overlay the
+  // video itself (e.g. Room.jsx's "sync status" pill) still renders BEHIND
+  // the native view once bounds are non-zero, since WebContentsView
+  // composites above regular page content within its bounds. That's a
+  // separate, real UX rough edge this phase doesn't attempt to solve —
+  // repositioning that UI outside the video area (or insetting the view's
+  // bounds to leave a gap) is a deliberate design choice for whoever picks
+  // that up, not a tracking bug.
   useEffect(() => {
     if (!isElectron) return;
     const el = frameRef.current;
     if (!el) return;
 
+    let rafId = null;
+    let last = null; // last bounds actually sent, to skip redundant IPC calls
+
     function reportBounds() {
       if (!hasFrame) {
-        window.syncwatch.playback.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+        if (!last || last.width !== 0 || last.height !== 0) {
+          last = { x: 0, y: 0, width: 0, height: 0 };
+          window.syncwatch.playback.setBounds(last);
+        }
         return;
       }
       const rect = el.getBoundingClientRect();
-      window.syncwatch.playback.setBounds({
-        x: rect.left, y: rect.top, width: rect.width, height: rect.height,
-      });
+      const r = (v) => Math.round(v);
+      const next = { x: r(rect.left), y: r(rect.top), width: r(rect.width), height: r(rect.height) };
+      if (!last || last.x !== next.x || last.y !== next.y || last.width !== next.width || last.height !== next.height) {
+        last = next;
+        window.syncwatch.playback.setBounds(next);
+      }
     }
 
-    reportBounds();
+    function loop() {
+      reportBounds();
+      rafId = requestAnimationFrame(loop);
+    }
+    loop();
+
     const ro = new ResizeObserver(reportBounds);
     ro.observe(el);
     window.addEventListener('resize', reportBounds);
+
     return () => {
+      cancelAnimationFrame(rafId);
       ro.disconnect();
       window.removeEventListener('resize', reportBounds);
       window.syncwatch.playback.setBounds({ x: 0, y: 0, width: 0, height: 0 });

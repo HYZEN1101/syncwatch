@@ -93,6 +93,7 @@ export function Lobby({ ws, onJoined }) {
       // we do for watchers below, so Room.jsx can restore it on mount.
       session.set('sw_initial_stream_url', msg.streamUrl || '');
       session.set('sw_initial_chat', JSON.stringify(msg.chatHistory || []));
+      session.set('sw_initial_video_state', JSON.stringify(msg.lastVideoState || null));
       ws._joinedOnThisConnection = true; // see explanation in ROOM_JOINED handler below
       onJoined();
     });
@@ -113,6 +114,7 @@ export function Lobby({ ws, onJoined }) {
       session.set('sw_initial_peers', JSON.stringify(msg.peers || []));
       session.set('sw_initial_stream_url', msg.streamUrl || '');
       session.set('sw_initial_chat', JSON.stringify(msg.chatHistory || []));
+      session.set('sw_initial_video_state', JSON.stringify(msg.lastVideoState || null));
       // Mark the WS INSTANCE itself (not sessionStorage) as having
       // completed a real handshake on THIS connection. This is the key
       // distinction from sessionStorage: a page refresh always creates a

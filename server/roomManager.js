@@ -35,6 +35,14 @@ class RoomManager {
       streamUrl: null,       // current embed URL, so a refreshing/late-joining
                               // peer can be brought up to speed automatically
       chatHistory: [],       // recent messages, replayed to (re)joiners
+      lastVideoState: null,  // { state, currentTime, timestamp } — Phase 4:
+                              // lets a (re)joining peer resume near the
+                              // actual playback position instead of from
+                              // zero. Additive only; a room that never
+                              // received a VIDEO_STATE message simply has
+                              // this stay null, which callers already
+                              // handle the same way they handle a null
+                              // streamUrl.
     });
     return code;
   }
@@ -65,6 +73,7 @@ class RoomManager {
       peers,
       streamUrl: room.streamUrl,         // let the caller resend STREAM_URL
       chatHistory: room.chatHistory,     // let the caller replay recent chat
+      lastVideoState: room.lastVideoState, // let the caller resume near the actual position
     };
   }
 
@@ -73,6 +82,16 @@ class RoomManager {
   setStreamUrl(code, url) {
     const room = this.rooms.get(code);
     if (room) room.streamUrl = url;
+  }
+
+  // Record the room's most recent play/pause/seek so a (re)joining peer
+  // can resume near the actual position instead of from zero. Called
+  // alongside the existing VIDEO_STATE broadcast in server/index.js —
+  // purely additive, doesn't change what's broadcast to already-connected
+  // peers, just remembers it for whoever joins/rejoins next.
+  setVideoState(code, state, currentTime, timestamp) {
+    const room = this.rooms.get(code);
+    if (room) room.lastVideoState = { state, currentTime, timestamp };
   }
 
   // Append a chat message to the room's short replay buffer.
@@ -134,7 +153,7 @@ class RoomManager {
     ws.hasControl = false;
     room.host = ws;
     room.peers.add(ws);
-    return { ok: true, streamUrl: room.streamUrl, chatHistory: room.chatHistory };
+    return { ok: true, streamUrl: room.streamUrl, chatHistory: room.chatHistory, lastVideoState: room.lastVideoState };
   }
 
   get(code) {

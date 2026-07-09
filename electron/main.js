@@ -101,12 +101,15 @@ function createWindow() {
   // why this API was chosen over <webview>.
   const playback = createPlaybackController(mainWindow);
 
-  // Diagnostic shortcut: opens DevTools for the actual video view, not the
-  // main window. WebContentsView is a fully separate webContents — the
-  // regular DevTools (Ctrl+Shift+I on the main window) can't see into it at
-  // all, which matters when diagnosing site-specific playback behavior
-  // (e.g. a site auto-resuming after a programmatic pause). Registered
-  // per-window; cleaned up in window-all-closed below.
+  // Diagnostic shortcut: attempts to open DevTools for the actual video
+  // view (a WebContentsView is a fully separate webContents from the main
+  // window, so the regular DevTools on Ctrl+Shift+I can't see into it at
+  // all). Note from HANDOFF_PHASE_3.md: this turned out unreliable in
+  // testing — opening it visibly broke the view's rendering — and the bug
+  // that motivated adding it was actually solved via
+  // window.syncwatch.playback.debugPauseTest() instead (callable from the
+  // MAIN window's normal, working DevTools console). Kept registered since
+  // it's harmless and occasionally still worth trying, but don't rely on it.
   globalShortcut.register('CommandOrControl+Shift+P', () => {
     playback.openDevTools();
   });

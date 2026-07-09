@@ -86,6 +86,10 @@ export function Room({ ws, onLeave }) {
     try { return JSON.parse(session.get('sw_initial_chat') || '[]'); }
     catch { return []; }
   });
+  const [initialVideoState] = useState(() => {
+    try { return JSON.parse(session.get('sw_initial_video_state') || 'null'); }
+    catch { return null; }
+  });
 
   const [bridgeWarning, setBridgeWarning] = useState(false);
   // Tracks the domain of whatever's currently loaded in the iframe, so the
@@ -109,6 +113,7 @@ export function Room({ ws, onLeave }) {
   // in the effect further down.
   const [rejoinStreamUrl,    setRejoinStreamUrl]    = useState(null);
   const [rejoinChatHistory,  setRejoinChatHistory]  = useState(null);
+  const [rejoinVideoState,   setRejoinVideoState]   = useState(null);
   const streamUrlRef   = useRef(null);
   const hasJoinedRef   = useRef(false); // ← prevents double-join
   const codeRef        = useRef(code);  // always-current code for doJoin's closure
@@ -155,6 +160,7 @@ export function Room({ ws, onLeave }) {
       // is harmless — a brand-new room simply has null/[] for both).
       if (msg.streamUrl)    setRejoinStreamUrl(msg.streamUrl);
       if (msg.chatHistory)  setRejoinChatHistory(msg.chatHistory);
+      if (msg.lastVideoState) setRejoinVideoState(msg.lastVideoState);
       setJoinError('');
     });
     const offJoined = ws.on('ROOM_JOINED', msg => {
@@ -174,6 +180,7 @@ export function Room({ ws, onLeave }) {
       // we must apply the server's fresh reply directly here instead.
       if (msg.streamUrl)   setRejoinStreamUrl(msg.streamUrl);
       if (msg.chatHistory) setRejoinChatHistory(msg.chatHistory);
+      if (msg.lastVideoState) setRejoinVideoState(msg.lastVideoState);
       setJoinError('');
     });
     const offError = ws.on('ERROR', msg => {
@@ -294,10 +301,18 @@ export function Room({ ws, onLeave }) {
   // (previously the warning said "not detected" with no way to tell WHICH
   // of the many possible embed sites was actually the problem).
   function applyStreamUrl(url) {
-    sync.loadUrl(url);
     setCurrentStreamUrl(url);
     setLoadFailed(false);
     try { setStreamHostname(new URL(url).hostname); } catch { setStreamHostname(null); }
+    // Phase 4: loadUrl now resolves with { ok, error } on both paths — on
+    // Electron this is a real "did the site actually fail to load at all"
+    // signal (distinct from sync.videoNotFound, which means the page DID
+    // load but no <video> was ever found on it). The browser path always
+    // resolves ok:true here since Player.jsx's iframe onError already
+    // covers that case separately.
+    sync.loadUrl(url).then((result) => {
+      if (result && result.ok === false) setLoadFailed(true);
+    });
   }
 
   // Retries the same URL that's already loaded — for when an embed
@@ -308,7 +323,9 @@ export function Room({ ws, onLeave }) {
   function reloadStream() {
     if (!currentStreamUrl) return;
     setLoadFailed(false);
-    sync.loadUrl(currentStreamUrl);
+    sync.loadUrl(currentStreamUrl).then((result) => {
+      if (result && result.ok === false) setLoadFailed(true);
+    });
     // A flaky embed almost always fails the same way for everyone in the
     // room (they're all loading the identical URL) — re-broadcasting it
     // tells watchers to reload too instead of staying stuck on a dead frame.
@@ -326,6 +343,22 @@ export function Room({ ws, onLeave }) {
       sync.setHasFrame(true);
       setBridgeWarning(false);
       setTimeout(() => checkBridge(), 1500);
+      // Position restore (Phase 4): resume near the actual last known
+      // playback position/state instead of from zero. applyState's own
+      // drift correction naturally does the right thing here — a large
+      // "drift" between a fresh 0 and the real remembered position is
+      // exactly what triggers its forced-seek path, and for a 'play'
+      // state it also accounts for real time elapsed since the state was
+      // recorded (see server/roomManager.js's setVideoState). A short
+      // delay gives the freshly-loading page a moment before we also ask
+      // it to seek — not strictly required (the command itself retries
+      // for up to ~10s per electron/playback.js), but avoids piling every
+      // command into the same instant on a slow-loading embed.
+      if (initialVideoState) {
+        setTimeout(() => {
+          sync.applyState(initialVideoState.state, initialVideoState.currentTime, initialVideoState.timestamp);
+        }, 800);
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -340,8 +373,16 @@ export function Room({ ws, onLeave }) {
       sync.setHasFrame(true);
       setBridgeWarning(false);
       setTimeout(() => checkBridge(), 1500);
+      // Position restore (Phase 4) — mirrors the initialStreamUrl path
+      // above; see its comment for why the drift-correction math and the
+      // short delay both work out correctly here.
+      if (rejoinVideoState) {
+        setTimeout(() => {
+          sync.applyState(rejoinVideoState.state, rejoinVideoState.currentTime, rejoinVideoState.timestamp);
+        }, 800);
+      }
     }
-  }, [rejoinStreamUrl]);
+  }, [rejoinStreamUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (rejoinChatHistory) chat.restoreMessages(rejoinChatHistory);
@@ -448,6 +489,19 @@ export function Room({ ws, onLeave }) {
         </div>
 
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {/* Phase 4: on Electron, the WebContentsView composites above
+              regular page content within its bounds — an overlay positioned
+              on top of the video (the version further below) would render
+              BEHIND it once a stream loads. Moved here instead, which is
+              genuinely outside the video's bounding rect rather than trying
+              to carve a gap out of it. Browser build is unaffected by this
+              issue (no native view involved) and keeps the original
+              on-video placement, so this is deliberately Electron-only. */}
+          {sync.isElectron && (
+            <div style={{ fontSize:11, fontWeight:500, padding:'4px 10px', borderRadius:9999, background:'rgba(0,0,0,0.06)', color:'var(--color-on-surface-variant, #555)', display:'flex', alignItems:'center', gap:6 }}>
+              {sync.status}
+            </div>
+          )}
           <ThemeToggle />
           <button onClick={onLeave}
             style={{ fontSize:12, fontWeight:600, padding:'5px 12px', background:'rgba(186,26,26,0.07)', color:'var(--color-error)', border:'1px solid rgba(186,26,26,0.18)', borderRadius:20, cursor:'pointer', transition:'all 0.2s' }}
@@ -492,6 +546,23 @@ export function Room({ ws, onLeave }) {
             Try again
           </button>
           <button onClick={() => setLoadFailed(false)} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:'#92400e', fontSize:16, padding:0 }}>✕</button>
+        </div>
+      )}
+      {sync.videoNotFound && isHost && (
+        // Phase 4: distinct failure mode from loadFailed above — the page
+        // itself loaded fine (no network/frame error), but no <video>
+        // element was ever found on it after a ~10s search. Electron-only:
+        // the browser/bridge path has its own separate detection for this
+        // via checkBridge's ping/pong, covered by the bridgeWarning banner.
+        <div style={{ padding:'9px 16px', background:'rgba(245,158,11,0.12)', borderBottom:'1px solid rgba(245,158,11,0.3)', fontSize:12, color:'#92400e', display:'flex', alignItems:'center', gap:8, flexShrink:0, zIndex:10, position:'relative', flexWrap:'wrap' }}>
+          <span className="material-symbols-outlined" style={{ fontSize:16 }}>videocam_off</span>
+          <strong>This page loaded, but no video was found on it.</strong> The site may need you to
+          click play manually first, pick a different source/server on the page itself, or it's
+          just not a supported embed. Worth trying <strong>Reload</strong>, or a different mirror.
+          <button onClick={reloadStream} style={{ fontSize:11, fontWeight:700, padding:'3px 12px', background:'rgba(245,158,11,0.18)', border:'none', borderRadius:6, color:'#92400e', cursor:'pointer' }}>
+            Try again
+          </button>
+          <button onClick={() => sync.setVideoNotFound(false)} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', color:'#92400e', fontSize:16, padding:0 }}>✕</button>
         </div>
       )}
       {bridgeWarning && (
@@ -575,11 +646,14 @@ export function Room({ ws, onLeave }) {
               </div>
             )}
 
-            {/* Sync status */}
-            <div style={{ position:'absolute', top:12, right:12, padding:'5px 12px', borderRadius:9999, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', gap:6, border:'1px solid rgba(255,255,255,0.12)', pointerEvents:'none' }}>
-              <span className="sync-dot" style={{ width:7, height:7, borderRadius:'50%', background:'#4ade80', display:'block', flexShrink:0 }} />
-              <span style={{ fontSize:11, fontWeight:500, color:'#fff' }}>{sync.status}</span>
-            </div>
+            {/* Sync status — browser build only; see the header for the
+                Electron equivalent (comment above explains why). */}
+            {!sync.isElectron && (
+              <div style={{ position:'absolute', top:12, right:12, padding:'5px 12px', borderRadius:9999, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', gap:6, border:'1px solid rgba(255,255,255,0.12)', pointerEvents:'none' }}>
+                <span className="sync-dot" style={{ width:7, height:7, borderRadius:'50%', background:'#4ade80', display:'block', flexShrink:0 }} />
+                <span style={{ fontSize:11, fontWeight:500, color:'#fff' }}>{sync.status}</span>
+              </div>
+            )}
           </div>
 
           {/* Controls */}

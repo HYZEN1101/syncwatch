@@ -281,11 +281,25 @@ function createPlaybackController(win) {
   // within it) finishes loading. Reuses the same retry-budget helper as
   // commands do, since a lazily-rendered player may not have its <video> tag
   // in the DOM yet right when the navigation event fires.
+  //
+  // Phase 4: if the full retry budget (~10s) is exhausted with no video
+  // ever found, that's a real, distinct failure mode worth surfacing —
+  // "the page loaded fine but there's nothing to play" is a different
+  // problem (and likely a different fix) than "the page didn't load at
+  // all" (handled separately, by playback:load-url's own try/catch below).
+  // Reuses the existing 'playback:video-event' channel with a synthetic
+  // type rather than adding a whole separate channel for one message.
   function installEventListeners() {
-    waitForVideoAndRun(view.webContents, buildEventListenerScript()).catch(() => {
-      // Best-effort — a failed install here just means sync stays on
-      // whatever state it last had; it doesn't block commands from working.
-    });
+    waitForVideoAndRun(view.webContents, buildEventListenerScript())
+      .then((result) => {
+        if (!result || !result.found) {
+          win.webContents.send('playback:video-event', { type: 'no-video-found', timestamp: Date.now() });
+        }
+      })
+      .catch(() => {
+        // Best-effort — a failed install here just means sync stays on
+        // whatever state it last had; it doesn't block commands from working.
+      });
   }
   view.webContents.on('did-finish-load', installEventListeners);
   view.webContents.on('did-frame-finish-load', (_event, isMainFrame) => {

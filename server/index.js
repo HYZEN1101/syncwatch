@@ -77,7 +77,7 @@ function handle(ws, msg) {
           if (result.ok) {
             send(ws, {
               type: MSG.ROOM_CREATED, code: msg.previousCode, peerId: ws.id, role: 'host', rejoined: true,
-              streamUrl: result.streamUrl, chatHistory: result.chatHistory,
+              streamUrl: result.streamUrl, chatHistory: result.chatHistory, lastVideoState: result.lastVideoState,
             });
             return;
           }
@@ -100,9 +100,9 @@ function handle(ws, msg) {
         type: MSG.ROOM_JOINED, code, peerId: ws.id, role: 'watcher', peers: result.peers,
         // Bring a (re)joining peer up to speed automatically — this is
         // what makes a watcher's page refresh actually recoverable: they
-        // get the current movie URL and recent chat without the host
-        // needing to do anything.
-        streamUrl: result.streamUrl, chatHistory: result.chatHistory,
+        // get the current movie URL, recent chat, and last known playback
+        // position/state without the host needing to do anything.
+        streamUrl: result.streamUrl, chatHistory: result.chatHistory, lastVideoState: result.lastVideoState,
       });
       broadcast(code, { type: MSG.PEER_JOINED, peerId: ws.id, displayName: msg.displayName }, ws);
       break;
@@ -120,11 +120,16 @@ function handle(ws, msg) {
     case MSG.VIDEO_STATE: {
       if (!ws.roomCode) return;
       if (!['play','pause','seek'].includes(msg.state)) return;
+      const timestamp = Date.now();
+      const currentTime = Number(msg.currentTime) || 0;
+      // Purely additive — doesn't change what's broadcast to already-
+      // connected peers below, just remembers it for whoever (re)joins next.
+      rooms.setVideoState(ws.roomCode, msg.state, currentTime, timestamp);
       broadcast(ws.roomCode, {
         type:        MSG.VIDEO_STATE,
         state:       msg.state,
-        currentTime: Number(msg.currentTime) || 0,
-        timestamp:   Date.now(),
+        currentTime,
+        timestamp,
       }, ws);
       break;
     }

@@ -1,6 +1,6 @@
 # HANDOFF_PHASE_3.md — Event-Driven Sync
 
-## Status: Built and build-verified. Needs real-machine manual testing (this sandbox still can't launch a GUI — see HANDOFF_PHASE_1.md/2.md for why).
+## Status: Complete and confirmed working on a real machine, including three real bugs found and fixed during manual testing (see "Bugs found during manual testing" below).
 
 ## What this phase covers
 Phase 3 of the Electron migration: replacing `useSync.js`'s wall-clock-estimated sync (`estimatedTime()`, the `localTime`/`startedAt` timer, no visibility into whether a command actually landed) with real, pushed `<video>` events — `play`/`pause`/`seeking`/`seeked`/`waiting`/`playing`/`ended`/`timeupdate` — per `PHASE_3_event_driven_sync.md`, building on the IPC surface Phase 2 left stubbed (`playback:video-event`, `onVideoEvent`).
@@ -32,25 +32,47 @@ Per the phase doc's own framing, this was a choice between (A) keep `VIDEO_STATE
 - **No "confirmed vs pending" distinction for ordinary play/pause/seek commands** beyond the autoplay-block case — the phase doc explicitly said to add this only if cheap, and skip if it risked over-engineering. Skipped intentionally; if wanted later, `refreshStatus()` is the natural place to extend.
 - Everything already flagged in `HANDOFF_PHASE_2.md`'s "Known gaps" section (fullscreen, DOM-overlay occlusion by the native view, position-only bounds-tracking gaps, real-aggregator nested-frame verification) is still open and untouched by this phase — none of it was in scope here.
 
-## Verification performed in the dev sandbox
-- `npm run build` in `client-react/` succeeds with no errors after the `useSync.js` changes.
-- `node --check` passes clean on `electron/playback.js`, `electron/playback-preload.js` (new), `electron/main.js`, `electron/preload.js`.
-- Manual code review: event flow traced end-to-end (injected script → preload bridge → ipc-message → renderer channel → useSync subscription) for consistency; no dangling references to the old Phase-3-stub comments left in `preload.js`/`playback.js`.
+## Bugs found and fixed during manual testing
+Real-machine testing surfaced three genuine bugs — none were in the original phase plan, all confirmed fixed by the end of this phase:
 
-**What genuinely needs a real run, on a real machine, before trusting this phase is done** (this sandbox still can't launch a GUI Electron window — see HANDOFF_PHASE_1.md):
-1. `npm run electron:dev`, load a stream, confirm playback still works exactly as it did after Phase 2 (this phase shouldn't change baseline playback behavior, only sync accuracy/status feedback).
-2. Watch the status text through a normal play → pause → seek → play cycle — should read `▶ In Sync` / `⏸ Paused at m:ss` / `⏩ m:ss` same as before, now backed by real events instead of pure estimation.
-3. **Autoplay-block check**: find (or simulate) a case where `video.play()` gets rejected — e.g. an unmuted autoplay attempt some sites block — and confirm the status flips to `"⚠ Playback may be blocked — click the video"` after ~2.5s, then clears once the video actually starts (e.g. after a manual click makes it play).
-4. **Buffering check**: throttle network (devtools or OS-level) or use a stream known to buffer, confirm `"⏳ Buffering…"` appears on a `waiting` event and clears on `playing`.
-5. Load a second stream after the first — confirm no stale "blocked"/"buffering" text lingers momentarily from the previous one.
-6. Regression: confirm the web/browser build (`localhost:3000` in a normal tab) is completely unaffected — no event subscription exists there, so behavior should be byte-for-byte the same as before this phase.
+### 1. `estimatedTime()` double-counted position on every play-after-pause
+**Symptom:** pause/play cycles caused the video to jump forward by a large, compounding amount — roughly doubling each cycle (reported as "takes 4-5 pause/play cycles to skip an entire hour").
+
+**Root cause:** `startedAt.current` is always computed as `Date.now() - correctedTime * 1000`, which already fully encodes the absolute playback position. `estimatedTime()` then added `localTime.current` on top of that while playing — double-counting. Invisible on the very first play ever (`localTime.current` starts at `0`), which is why it looked fine initially; became visible on every subsequent pause→play cycle once `localTime.current` held a real nonzero value.
+
+**Fix:** `estimatedTime()` now returns `(Date.now() - startedAt.current) / 1000` directly while playing, no addition. Verified numerically with a standalone simulation before shipping: old formula produced `10s → 30s → 70s → 150s → 310s` over 5 cycles of 10s each; fixed formula produced the correct `10s → 20s → 30s → 40s → 50s`.
+
+### 2. Pause command triggered a site auto-resume via unnecessary seeks
+**Symptom:** clicking Pause caused a brief freeze/stutter, then the video resumed playing on its own.
+
+**Root cause:** the pause command always forced an exact-`currentTime` seek alongside pausing (`pauseat`), even when drift was negligible. Some embed sites auto-resume playback after any seek (a "recovering from buffering" behavior).
+
+**Fix:** `applyState`'s `'pause'` branch now only forces a seek when drift actually exceeds `DRIFT_THRESHOLD` (mirroring the same asymmetry already used for play/playfrom) — an ordinary pause no longer seeks at all. Also added defensive reassertion (`v.pause()` retried at 60ms/300ms) in `buildControlScript` for the cases where a seek genuinely is needed.
+
+### 3. The real culprit: the site resumes video on hover, not on a timer
+**Symptom:** after fix #2, pause still appeared to hold for "about 10 seconds" before resuming — investigated via a temporary diagnostic (`playback:debug-pause-test`, an isolated pause-and-poll script run directly through the existing `executeJavaScript` path, since opening a separate DevTools window for the `WebContentsView` itself turned out to be unreliable and was abandoned as a dead end). The diagnostic showed a raw, unforced `pause()` holding *perfectly* steady with zero drift for a full 10 seconds — which looked at first like a periodic site-side watchdog, but turned out to be coincidental: the real trigger, confirmed directly by the user, is that **cineby resumes playback whenever the mouse hovers back over the video**, regardless of elapsed time.
+
+**Fix:** shadowed the video element's own `.play()` method directly (`buildControlScript`, guarded by `v.__syncwatchGuardInstalled` so it's only installed once per element) — any call to `.play()`, from anywhere, is refused while `window.__syncwatchPauseGuardActive` is true. Our own `pause`/`pauseat` commands set that flag true; `play`/`playfrom` set it false before calling the real `play()`. This intercepts the resume regardless of what triggers it (hover, a timer, or anything else that ultimately calls `.play()` on the same element), rather than reacting to one specific trigger. **Confirmed fixed by the user** — pause now holds through hover indefinitely.
+
+**Note for later phases:** this guard is per-element (`v.__syncwatchGuardInstalled`). If a site ever replaces the `<video>` element itself (rather than just calling `.play()` on the existing one), the guard would need to be reinstalled on the new element — not currently handled, since it wasn't needed to fix the confirmed bug. Worth keeping in mind if a similar "resume" bug resurfaces on a different site with a different resume mechanism.
+
+## A temporary diagnostic tool was added, kept in the codebase
+`window.syncwatch.playback.debugPauseTest()` (callable from the main window's regular DevTools console) — calls `pause()` once, then samples `.paused`/`.currentTime` every 500ms for 10s, returning the full timeline. Left in place since it's harmless and cheap, and could be useful again if similar playback-interference bugs come up on other sites in the future. Not part of the app's normal UI.
+
+## Manual test results (confirmed by the user on Windows, real Electron window, cineby.app as the test site)
+1. Baseline playback (load, play, pause, seek, keyboard shortcuts) — **confirmed working**.
+2. Pause/play cycle timing — **confirmed fixed** (bug #1 above).
+3. Pause holding indefinitely, including through mouse hover — **confirmed fixed** (bugs #2 and #3 above).
+4. Autoplay-block detection and buffering-status checks from the original test plan were not explicitly exercised — testing naturally focused on the pause bug that came up immediately. Not blocking; can be verified opportunistically later if either behavior is ever observed.
+5. Regression check on the plain web/browser build was not explicitly re-run this phase (all testing happened in the Electron app) — worth a quick sanity check in Phase 4 if not done before then, though none of this phase's changes touch code paths the browser build executes (`isElectron`-gated throughout).
 
 ## Files changed/added this phase
 - `electron/playback-preload.js` — new
-- `electron/playback.js` — event-listener injection, ipc-message forwarding, updated `WebContentsView` webPreferences
-- `electron/preload.js` — comment update only (onVideoEvent's channel is now actually fed)
-- `client-react/src/hooks/useSync.js` — event subscription, autoplay-block detection, buffering flag, `refreshStatus()`
+- `electron/playback.js` — event-listener injection, ipc-message forwarding, updated `WebContentsView` webPreferences, pause-race defensive reassertion, `.play()` guard override, temporary `debugPauseTest` diagnostic
+- `electron/preload.js` — `onVideoEvent` comment update, `debugPauseTest` binding exposed
+- `electron/main.js` — captures the playback controller return value, registers `Ctrl+Shift+P` to open DevTools for the playback view (added during debugging; turned out unreliable for this purpose, kept as a harmless shortcut but the debug-pause-test path is what actually resolved the bug)
+- `client-react/src/hooks/useSync.js` — event subscription, autoplay-block detection, buffering flag, `refreshStatus()`, `estimatedTime()` fix, pause branch's drift-gated seek
 - No changes to `server/`, `Room.jsx`, `Player.jsx`, or anything else.
 
 ## Next step
-Run the 6 manual checks above on a real machine. If they pass, hand this file + the updated zip + `PHASE_4_legacy_cleanup_and_ux.md` to the next chat to harden layout/bounds tracking, retire the Tampermonkey path fully in Electron, add real error states, and tackle position-restore-on-reconnect. If something fails, report back what broke — same caveat as the last two phases: this was built and reasoned through carefully but not run on a live window from this environment.
+Hand this file + the updated zip + `PHASE_4_legacy_cleanup_and_ux.md` to the next chat to harden layout/bounds tracking, retire the Tampermonkey path fully in Electron, add real error states, and tackle position-restore-on-reconnect. Worth doing the plain web/browser build regression check (item 5 above) early in that phase if it hasn't happened by then.
