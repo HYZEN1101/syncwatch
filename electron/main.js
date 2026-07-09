@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const os   = require('os');
 const { createPlaybackController } = require('./playback');
+const { autoUpdater } = require('electron-updater');
 
 const PORT = 3000;
 let mainWindow = null;
@@ -115,6 +116,52 @@ function createWindow() {
   });
 }
 
+// ── Auto-update ────────────────────────────────────────────────────────────
+//
+// Phase 5. Uses electron-updater against whatever provider is configured in
+// package.json's build.publish block — currently a GitHub Releases
+// placeholder (see that file: owner/repo need to be filled in with a real
+// GitHub repo before this does anything). Until that's configured and an
+// actual release is published there, checkForUpdates() will just fail
+// quietly (caught below) — this is expected, not a bug, for anyone running
+// from source or before release infrastructure exists.
+//
+// Deliberately NOT run in dev (npm run electron:dev): autoUpdater expects a
+// packaged app's structure (app-update.yml etc.) and errors out oddly
+// against an unpackaged one — app.isPackaged is the standard guard for this.
+function initAutoUpdate() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+
+  autoUpdater.on('error', (err) => {
+    // Deliberately quiet — the overwhelmingly common cause is "no
+    // publish infrastructure configured yet" or "no internet," neither of
+    // which the user can do anything about from an error dialog. Logged
+    // for whoever's looking at the console, not surfaced as a popup.
+    console.warn('[auto-update] check failed (expected until a release feed is configured):', err.message);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update ready',
+      message: `SyncWatch ${info.version} has been downloaded.`,
+      detail: 'Restart now to install it, or continue and it\'ll install next time you quit.',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+
+  autoUpdater.checkForUpdates().catch(() => {
+    // Same reasoning as the 'error' handler above — checkForUpdates()
+    // itself can also reject directly rather than only emitting 'error'.
+  });
+}
+
 // ── App lifecycle ──────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
@@ -122,6 +169,7 @@ app.whenReady().then(async () => {
     startServer();
     await waitForServer();
     createWindow();
+    initAutoUpdate();
   } catch (err) {
     dialog.showErrorBox('SyncWatch — startup failed', err.message);
     app.quit();
