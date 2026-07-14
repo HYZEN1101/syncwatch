@@ -292,7 +292,7 @@ export function Lobby({ ws, onJoined }) {
                 onMouseLeave={e=>e.currentTarget.style.background='rgba(167,46,74,0.09)'}
               >↺</button>
             </div>
-            <p style={{ margin:0, fontSize:10, color:'var(--color-outline)', paddingLeft:2 }}>Connect to a playback relay server to sync media.</p>
+            <p style={{ margin:0, fontSize:10, color:'var(--color-outline)', paddingLeft:2 }}>This is which SyncWatch server you're connected to — paste a friend's tunnel or LAN link here to join their room instead of your own.</p>
           </div>
 
           {/* Name */}
