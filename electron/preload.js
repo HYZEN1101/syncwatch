@@ -4,6 +4,11 @@ contextBridge.exposeInMainWorld('syncwatch', {
   getLanIP:     () => ipcRenderer.invoke('get-lan-ip'),
   getTunnelUrl: () => ipcRenderer.invoke('get-tunnel-url'),
   startTunnel:  () => ipcRenderer.invoke('start-tunnel'),
+  // Tunnel Settings (Lobby.jsx): a free ngrok authtoken, entered once by
+  // whoever is hosting. Persisted in a small JSON file in the main
+  // process (electron/main.js's configPath()), not renderer storage.
+  getNgrokToken: () => ipcRenderer.invoke('get-ngrok-token'),
+  setNgrokToken: (token) => ipcRenderer.invoke('set-ngrok-token', token),
   version:      process.env.npm_package_version || '1.0.0',
   platform:     process.platform,
 

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, shell, dialog, ipcMain, globalShortcut, Menu } = require('electron');
 const path = require('path');
+const fs   = require('fs');
 const http = require('http');
 const os   = require('os');
 const { createPlaybackController } = require('./playback');
@@ -7,7 +8,6 @@ const { autoUpdater } = require('electron-updater');
 
 const PORT = 3000;
 let mainWindow = null;
-let tunnelUrl  = null;
 let tunnelInst = null;
 
 // ── LAN IP ─────────────────────────────────────────────────────────────────
@@ -22,19 +22,73 @@ function getLanIP() {
   return '127.0.0.1';
 }
 
+// ── Local config (currently just the ngrok authtoken) ──────────────────────
+//
+// A tiny JSON file in the app's userData folder — not localStorage/renderer
+// storage, since this is read by startTunnel() here in the main process.
+// The authtoken is a personal free-tier credential the HOST enters once;
+// nothing about it is needed by anyone who just connects to the resulting
+// tunnel URL (see chat history / HANDOFF notes for the reasoning on why
+// ngrok replaced localtunnel as the default: localtunnel shows visitors a
+// manual "confirm the host's IP" interstitial on first contact that a raw
+// WebSocket client can't click through, which made it structurally unable
+// to work for a friend's very first join).
+function configPath() {
+  return path.join(app.getPath('userData'), 'syncwatch-config.json');
+}
+function loadConfig() {
+  try { return JSON.parse(fs.readFileSync(configPath(), 'utf8')); }
+  catch { return {}; }
+}
+function saveConfig(cfg) {
+  try { fs.writeFileSync(configPath(), JSON.stringify(cfg, null, 2)); }
+  catch (e) { console.warn('[config] failed to save:', e.message); }
+}
+
 // ── Internet tunnel ────────────────────────────────────────────────────────
+//
+// Tries ngrok first if the user has configured an authtoken (free account,
+// one-time setup — see Lobby.jsx's Tunnel Settings). Falls back to
+// localtunnel otherwise, since that needs zero signup at all — but with an
+// explicit warning attached, since it's known to fail for a friend's first
+// connection attempt (the interstitial issue above). tunnelInfo is cached
+// so repeated calls (or get-tunnel-url) don't spin up a second tunnel.
+let tunnelInfo = null; // { url, provider, warning? }
 
 async function startTunnel() {
-  if (tunnelUrl) return tunnelUrl;
+  if (tunnelInfo) return tunnelInfo;
+
+  const { ngrokAuthtoken } = loadConfig();
+  if (ngrokAuthtoken) {
+    try {
+      const ngrok = require('@ngrok/ngrok');
+      tunnelInst = await ngrok.forward({ addr: PORT, authtoken: ngrokAuthtoken });
+      const url = tunnelInst.url();
+      tunnelInfo = { url, provider: 'ngrok' };
+      console.log(`🌐  ngrok tunnel → ${url}\n`);
+      return tunnelInfo;
+    } catch (e) {
+      console.warn('[tunnel] ngrok failed, falling back to localtunnel:', e.message);
+      // Falls through to localtunnel below rather than giving up entirely —
+      // a bad/expired token shouldn't mean no tunnel at all.
+    }
+  }
+
   try {
     const localtunnel = require('localtunnel');
     tunnelInst = await localtunnel({ port: PORT });
-    tunnelUrl  = tunnelInst.url;
-    tunnelInst.on('close', () => { tunnelUrl = null; tunnelInst = null; });
-    tunnelInst.on('error', () => { tunnelUrl = null; tunnelInst = null; });
-    return tunnelUrl;
+    const url  = tunnelInst.url;
+    tunnelInst.on('close', () => { tunnelInfo = null; tunnelInst = null; });
+    tunnelInst.on('error', () => { tunnelInfo = null; tunnelInst = null; });
+    tunnelInfo = {
+      url,
+      provider: 'localtunnel',
+      warning: 'localtunnel shows new visitors a manual "confirm the host IP" page that a friend\'s first connection attempt can\'t get through automatically. Add a free ngrok authtoken in Tunnel Settings for a link that works immediately instead.',
+    };
+    console.log(`🌐  localtunnel → ${url}\n`);
+    return tunnelInfo;
   } catch (e) {
-    console.error('[tunnel] Failed to start:', e.message);
+    console.error('[tunnel] Failed to start (both ngrok and localtunnel unavailable):', e.message);
     return null;
   }
 }
@@ -42,8 +96,15 @@ async function startTunnel() {
 // ── IPC ────────────────────────────────────────────────────────────────────
 
 ipcMain.handle('get-lan-ip',     ()  => getLanIP());
-ipcMain.handle('get-tunnel-url', ()  => tunnelUrl);
+ipcMain.handle('get-tunnel-url', ()  => tunnelInfo);
 ipcMain.handle('start-tunnel',   ()  => startTunnel());
+ipcMain.handle('get-ngrok-token', () => loadConfig().ngrokAuthtoken || '');
+ipcMain.handle('set-ngrok-token', (_event, token) => {
+  const cfg = loadConfig();
+  cfg.ngrokAuthtoken = (token || '').trim();
+  saveConfig(cfg);
+  return true;
+});
 
 // ── Embedded server ────────────────────────────────────────────────────────
 

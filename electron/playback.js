@@ -40,7 +40,9 @@
 // preload.js's onVideoEvent — see HANDOFF_PHASE_3.md).
 
 const path = require('path');
-const { WebContentsView, ipcMain } = require('electron');
+const fs = require('fs');
+const { WebContentsView, ipcMain, app } = require('electron');
+const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 
 // ── The injected control script ─────────────────────────────────────────────
 //
@@ -245,6 +247,64 @@ async function waitForVideoAndRun(webContents, script, attempts = 40, interval =
 // double-registering the IPC handlers if this were ever called twice.
 let initialized = false;
 
+// ── Ad / popup blocking ──────────────────────────────────────────────────
+//
+// Streaming aggregator sites are notoriously aggressive with ads —
+// popunders, redirect-to-ad-page hijacks, and heavy tracker/ad-script
+// loading. Two independent layers, since they cover different attack
+// patterns:
+//
+// 1. Block ALL new window/tab creation on the playback view. This is the
+//    classic "click anywhere → a new tab/window opens to an ad" pattern.
+//    Legitimate video playback never needs to open a new window, so this
+//    is safe to block unconditionally — no allowlist needed.
+//
+// 2. A real filter-list-based network blocker (@ghostery/adblocker-electron
+//    — the actively maintained continuation of the library formerly known
+//    as Cliqz's adblocker, uBlock-Origin/EasyList-compatible, used in real
+//    Electron media-player apps for exactly this purpose) applied to the
+//    playback view's OWN session — not the app's default session — so
+//    blocking rules can never affect the app's own UI/asset loading, only
+//    third-party site traffic. This catches ad iframes, tracker beacons,
+//    and ad-serving scripts at the network level, before they ever load.
+//
+// The filter lists are fetched once and cached to disk (userData folder)
+// to avoid re-downloading and re-parsing EasyList/EasyPrivacy on every
+// launch — subsequent starts just deserialize the cached engine, which is
+// fast. If the cache is missing (first run, or after an update) it falls
+// back to fetching fresh, which needs the user's own internet connection —
+// same as any real ad blocker's filter-list updates.
+async function setupAdBlocking(webContentsSession) {
+  const cachePath = path.join(app.getPath('userData'), 'adblock-engine-cache.bin');
+
+  let blocker;
+  try {
+    if (fs.existsSync(cachePath)) {
+      blocker = ElectronBlocker.deserialize(fs.readFileSync(cachePath));
+    } else {
+      blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
+      try {
+        fs.writeFileSync(cachePath, blocker.serialize());
+      } catch (e) {
+        // Non-fatal — just means next launch re-fetches instead of using a
+        // cache. Don't let a disk-write hiccup break ad blocking itself.
+        console.warn('[ad-block] could not write engine cache (non-fatal):', e.message);
+      }
+    }
+  } catch (e) {
+    // Most likely cause: no internet on first run, or the cached file is
+    // corrupt/from an incompatible version. Either way, ad blocking simply
+    // doesn't activate this session rather than crashing the app over it —
+    // core playback doesn't depend on this feature.
+    console.warn('[ad-block] setup failed, continuing without it:', e.message);
+    return;
+  }
+
+  blocker.enableBlockingInSession(webContentsSession);
+  console.log('[ad-block] active for the playback view');
+}
+
+
 function createPlaybackController(win) {
   if (initialized) {
     throw new Error('createPlaybackController() called more than once — SyncWatch only expects one playback view per app.');
@@ -261,12 +321,31 @@ function createPlaybackController(win) {
       // child frame the outer page doesn't control.
       nodeIntegrationInSubFrames: true,
       preload: path.join(__dirname, 'playback-preload.js'),
+      // Dedicated session, isolated from the main window's default one —
+      // means the ad-blocking rules set up below apply ONLY to whatever
+      // third-party streaming site is loaded here, never to the app's own
+      // UI/asset requests. 'persist:' keeps things like site login state
+      // across restarts, same as a normal browser tab would.
+      partition: 'persist:playback',
     },
   });
   win.contentView.addChildView(view);
   // Starts collapsed — Player.jsx's ResizeObserver reports the real bounds
   // once the placeholder element it tracks actually mounts and has a size.
   view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Ad/popup blocking — see setupAdBlocking's own comment above for the
+  // full rationale. The popup blocker is synchronous and active
+  // immediately; the filter-list engine loads asynchronously (fetching or
+  // reading its cache) and simply activates a moment later once ready —
+  // no need to delay anything else on it.
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    console.log('[ad-block] blocked a new window/tab attempt ->', url);
+    return { action: 'deny' };
+  });
+  setupAdBlocking(view.webContents.session).catch((e) => {
+    console.warn('[ad-block] unexpected setup error, continuing without it:', e.message);
+  });
 
   // Phase 3: forward every reported video event straight through to the
   // renderer. No buffering/coalescing here — buildEventListenerScript

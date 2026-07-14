@@ -66,7 +66,11 @@ export function Lobby({ ws, onJoined }) {
   const [shareUrl,   setShareUrl]   = useState(null);
   const [lanIP,      setLanIP]      = useState('');
   const [tunnelUrl,  setTunnelUrl]  = useState('');
+  const [tunnelInfo, setTunnelInfo] = useState(null); // { provider, warning? } from the last startTunnel() call
   const [tunneling,  setTunneling]  = useState(false);
+  const [showTunnelSettings, setShowTunnelSettings] = useState(false);
+  const [ngrokToken, setNgrokTokenInput] = useState('');
+  const [ngrokTokenSaved, setNgrokTokenSaved] = useState(false);
   const [dark,       setDark]       = useState(() => document.documentElement.classList.contains('dark'));
 
   // Sync conn status
@@ -76,7 +80,10 @@ export function Lobby({ ws, onJoined }) {
   useEffect(() => {
     if (window.syncwatch) {
       window.syncwatch.getLanIP().then(ip => ip && setLanIP(ip));
-      window.syncwatch.getTunnelUrl().then(u => u && setTunnelUrl(u));
+      window.syncwatch.getTunnelUrl().then(info => {
+        if (info && info.url) { setTunnelUrl(info.url); setTunnelInfo(info); }
+      });
+      window.syncwatch.getNgrokToken().then(t => t && setNgrokTokenInput(t));
     } else {
       fetch('/_syncwatch/config').then(r=>r.json()).then(cfg => { if (cfg.publicUrl) setShareUrl(cfg.publicUrl); }).catch(()=>{});
     }
@@ -139,9 +146,20 @@ export function Lobby({ ws, onJoined }) {
   async function handleTunnel() {
     if (!window.syncwatch) return;
     setTunneling(true);
-    const url = await window.syncwatch.startTunnel();
+    const info = await window.syncwatch.startTunnel();
     setTunneling(false);
-    if (url) { setTunnelUrl(url); const wu=url.replace('https://','wss://').replace('http://','ws://'); setServerUrl(wu); ws.reconnect(wu); }
+    if (info && info.url) {
+      setTunnelInfo(info);
+      setTunnelUrl(info.url);
+      const wu = info.url.replace('https://','wss://').replace('http://','ws://');
+      setServerUrl(wu); ws.reconnect(wu);
+    }
+  }
+  async function saveNgrokToken() {
+    if (!window.syncwatch) return;
+    await window.syncwatch.setNgrokToken(ngrokToken.trim());
+    setNgrokTokenSaved(true);
+    setTimeout(() => setNgrokTokenSaved(false), 2000);
   }
   function createRoom() {
     if (!name.trim()) { setError('Enter your name first.'); return; }
@@ -206,19 +224,58 @@ export function Lobby({ ws, onJoined }) {
 
           {window.syncwatch && (
             <div className="info-box info-box-secondary">
-              <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:7, display:'flex', alignItems:'center', gap:5 }}>
-                <span className="material-symbols-outlined" style={{ fontSize:14 }}>travel_explore</span> Internet tunnel (different cities):
+              <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:7, display:'flex', alignItems:'center', justifyContent:'space-between', gap:5 }}>
+                <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize:14 }}>travel_explore</span> Internet tunnel (different cities):
+                </span>
+                <button onClick={() => setShowTunnelSettings(s => !s)} title="Tunnel settings"
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', display:'flex', padding:0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize:15 }}>settings</span>
+                </button>
               </div>
+
               {wssTunnel
-                ? <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    <code style={{ flex:1, fontSize:11, color:'var(--color-secondary)', background:'rgba(129,75,127,0.08)', padding:'5px 9px', borderRadius:7, wordBreak:'break-all' }}>{wssTunnel}</code>
-                    <CopyBtn text={wssTunnel} />
-                  </div>
+                ? <>
+                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <code style={{ flex:1, fontSize:11, color:'var(--color-secondary)', background:'rgba(129,75,127,0.08)', padding:'5px 9px', borderRadius:7, wordBreak:'break-all' }}>{wssTunnel}</code>
+                      <CopyBtn text={wssTunnel} />
+                    </div>
+                    <p style={{ margin:'6px 0 0', fontSize:10, color:'var(--color-on-surface-variant)' }}>
+                      via {tunnelInfo?.provider === 'ngrok' ? 'ngrok' : 'localtunnel'}
+                    </p>
+                    {tunnelInfo?.warning && (
+                      <p style={{ margin:'4px 0 0', fontSize:10, color:'#a15c00', background:'rgba(200,140,0,0.08)', padding:'6px 8px', borderRadius:6 }}>
+                        ⚠ {tunnelInfo.warning}
+                      </p>
+                    )}
+                  </>
                 : <button onClick={handleTunnel} disabled={tunneling}
                     style={{ padding:'8px 16px', background:'linear-gradient(135deg, var(--color-secondary), #9e5f9c)', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:tunneling?'not-allowed':'pointer', opacity:tunneling?0.6:1, transition:'all 0.2s', boxShadow:'0 2px 10px rgba(129,75,127,0.25)' }}>
                     {tunneling ? '⏳ Starting tunnel…' : '▶ Start internet tunnel'}
                   </button>
               }
+
+              {showTunnelSettings && (
+                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid rgba(129,75,127,0.15)' }}>
+                  <p style={{ margin:'0 0 6px', fontSize:10.5, color:'var(--color-on-surface-variant)', lineHeight:1.5 }}>
+                    A free <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" rel="noreferrer" style={{ color:'var(--color-secondary)' }}>ngrok authtoken</a> gives
+                    friends a link that works on their very first join — no code changes, one-time setup, and only you (the host) ever need it.
+                  </p>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <input className="sw-input" type="password" value={ngrokToken}
+                      onChange={e => setNgrokTokenInput(e.target.value)}
+                      placeholder="Paste your ngrok authtoken"
+                      style={{ flex:1, padding:'7px 10px', fontSize:11, borderRadius:8 }} />
+                    <button onClick={saveNgrokToken}
+                      style={{ padding:'7px 12px', background:'rgba(129,75,127,0.12)', border:'1.5px solid rgba(129,75,127,0.25)', borderRadius:8, color:'var(--color-secondary)', cursor:'pointer', fontWeight:700, fontSize:11, flexShrink:0 }}>
+                      {ngrokTokenSaved ? '✓ Saved' : 'Save'}
+                    </button>
+                  </div>
+                  <p style={{ margin:'6px 0 0', fontSize:9.5, color:'var(--color-outline)' }}>
+                    Takes effect next time you start a tunnel. Without a token, "Start internet tunnel" falls back to localtunnel — works, but friends may need an extra manual step on their first connection.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -241,7 +298,7 @@ export function Lobby({ ws, onJoined }) {
           {/* Name */}
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
             <label style={{ fontSize:13, fontWeight:700, color:'var(--color-on-surface-variant)', paddingLeft:2, display:'flex', alignItems:'center', gap:5 }}>
-              <span className="material-symbols-outlined" style={{ sfontSize:15 }}>person</span> Your name
+              <span className="material-symbols-outlined" style={{ fontSize:15 }}>person</span> Your name
             </label>
             <input className="sw-input" value={name} onChange={e=>setName(e.target.value)}
               placeholder="Enter your nickname" onKeyDown={e=>e.key==='Enter'&&createRoom()} />
