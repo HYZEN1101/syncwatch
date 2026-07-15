@@ -108,6 +108,9 @@ export function Room({ ws, onLeave }) {
   const [currentStreamUrl, setCurrentStreamUrl] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [connLost,      setConnLost]      = useState(false);
+  // Custom fullscreen (CSS-driven, not the native Fullscreen API — see the
+  // comment at the fullscreen toggle button below for why).
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // Populated only on a HOST rejoin (refresh/reconnect) via the
   // ROOM_CREATED listener above — applied once useSync/useChat exist,
   // in the effect further down.
@@ -456,6 +459,16 @@ export function Room({ ws, onLeave }) {
     return () => window.removeEventListener('blur', onBlur);
   }, []);
 
+  // Escape exits custom fullscreen — only registered while actually in it,
+  // so it doesn't interfere with anything else Escape might be expected to
+  // do elsewhere in the room.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function onKey(e) { if (e.key === 'Escape') setIsFullscreen(false); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isFullscreen]);
+
   const isHost = role === 'host';
 
   return (
@@ -617,7 +630,11 @@ export function Room({ ws, onLeave }) {
       <div style={{ display:'flex', flex:1, overflow:'hidden', position:'relative', zIndex:5 }}>
 
         {/* Player column */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0 }}>
+        <div style={
+          isFullscreen
+            ? { position:'fixed', inset:0, zIndex:1000, display:'flex', flexDirection:'column', background:'var(--color-background)' }
+            : { flex:1, display:'flex', flexDirection:'column', minWidth:0 }
+        }>
 
           <div style={{ flex:1, background:'#0a0a0f', position:'relative' }}>
             <Player
@@ -679,15 +696,30 @@ export function Room({ ws, onLeave }) {
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <span style={{ fontSize:10, color:'var(--color-outline)', opacity:0.7 }}>Space · ←→ · Shift+←→</span>
-              {/* Known gap on Electron (see HANDOFF_PHASE_2.md): this fullscreens
-                  the placeholder div, not the actual video — the native
-                  WebContentsView doesn't follow automatically. Left for a
-                  later phase; harmless no-op-ish behavior in the meantime. */}
-              <button title="Fullscreen" onClick={()=>sync.frameRef.current?.requestFullscreen?.()}
+              <span
+                title={'Space — Play / Pause\n← / →  — Seek 10 seconds\nShift + ← / →  — Seek 30 seconds'}
+                style={{ display:'flex', cursor:'help', color:'var(--color-on-surface-variant)', opacity:0.75 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize:16 }}>info</span>
+              </span>
+              {/* Custom fullscreen (CSS-driven), not the native Fullscreen API.
+                  requestFullscreen() used to be called on the placeholder
+                  <div> that Player.jsx positions the real WebContentsView
+                  over — the actual video (a separate native view, not part
+                  of this DOM at all) never followed it into fullscreen, and
+                  worse, entering/exiting native fullscreen on an unrelated
+                  empty element left the whole renderer's layout in a broken
+                  state until a manual window resize forced a relayout —
+                  the exact "UI vanishes after exiting fullscreen" bug.
+                  Toggling isFullscreen instead just changes real CSS layout
+                  (see the player column's style above), which Player.jsx's
+                  existing bounds-tracking loop picks up and reports to the
+                  native view automatically — no separate fix needed there. */}
+              <button title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'} onClick={() => setIsFullscreen(f => !f)}
                 style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', display:'flex', padding:4, borderRadius:6, transition:'all 0.15s' }}
                 onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,46,74,0.07)';e.currentTarget.style.color='var(--color-primary)';}}
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--color-on-surface-variant)';}}
-              ><span className="material-symbols-outlined" style={{fontSize:20}}>fullscreen</span></button>
+              ><span className="material-symbols-outlined" style={{fontSize:20}}>{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span></button>
             </div>
           </div>
         </div>
