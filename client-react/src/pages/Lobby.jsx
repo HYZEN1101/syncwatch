@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { session, prefs } from '../session';
+import { HelpTour } from '../components/HelpTour';
 
 function FloralDeco() {
   const items = [
@@ -69,6 +70,7 @@ export function Lobby({ ws, onJoined }) {
   const [tunnelInfo, setTunnelInfo] = useState(null); // { provider, warning? } from the last startTunnel() call
   const [tunneling,  setTunneling]  = useState(false);
   const [showTunnelSettings, setShowTunnelSettings] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [ngrokToken, setNgrokTokenInput] = useState('');
   const [ngrokTokenSaved, setNgrokTokenSaved] = useState(false);
   const [dark,       setDark]       = useState(() => document.documentElement.classList.contains('dark'));
@@ -186,16 +188,24 @@ export function Lobby({ ws, onJoined }) {
         <div className="glass-card" style={{ borderRadius:20, padding:28, display:'flex', flexDirection:'column', gap:16 }}>
 
           {/* Logo */}
-          <header style={{ textAlign:'center', paddingBottom:4 }}>
-            <div style={{ fontSize:28, fontWeight:800, color:'var(--color-primary)', display:'flex', alignItems:'center', justifyContent:'center', gap:10, lineHeight:1 }}>
-              <span style={{ fontSize:24 }}>🎬</span> SyncWatch
-              <span style={{ color:'var(--color-secondary)', fontSize:16, animation:'floatUp 4s ease-in-out infinite' }}>✦</span>
+          <header style={{ textAlign:'center', paddingBottom:4, position:'relative' }}>
+            <button onClick={() => setShowTour(true)} title="Show me around"
+              style={{ position:'absolute', top:-6, right:-6, background:'none', border:'none', cursor:'pointer', color:'var(--color-outline)', display:'flex', padding:6, borderRadius:'50%', transition:'all 0.15s' }}
+              onMouseEnter={e=>{e.currentTarget.style.color='var(--color-primary)';e.currentTarget.style.background='rgba(167,46,74,0.08)';}}
+              onMouseLeave={e=>{e.currentTarget.style.color='var(--color-outline)';e.currentTarget.style.background='none';}}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize:20 }}>help</span>
+            </button>
+            <div className="font-logo" style={{ fontSize:28, color:'var(--color-primary)', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>
+              SyncWatch
             </div>
             <p style={{ margin:'6px 0 0', fontSize:12, color:'var(--color-on-surface-variant)', letterSpacing:'0.01em' }}>Watch together, anywhere.</p>
           </header>
 
           {/* Conn status */}
-          <ConnPill status={connStatus} host={connStatus==='open' ? hostPart : null} />
+          <div id="tour-conn-pill">
+            <ConnPill status={connStatus} host={connStatus==='open' ? hostPart : null} />
+          </div>
 
           {/* Share / LAN / Tunnel info */}
           {shareUrl && (
@@ -211,7 +221,7 @@ export function Lobby({ ws, onJoined }) {
           )}
 
           {lanIP && (
-            <div className="info-box info-box-primary">
+            <div className="info-box info-box-primary" id="tour-lan-box">
               <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:6, display:'flex', alignItems:'center', gap:5 }}>
                 <span className="material-symbols-outlined" style={{ fontSize:14 }}>wifi</span> Same Wi-Fi — share with friends:
               </div>
@@ -223,7 +233,7 @@ export function Lobby({ ws, onJoined }) {
           )}
 
           {window.syncwatch && (
-            <div className="info-box info-box-secondary">
+            <div className="info-box info-box-secondary" id="tour-tunnel-box">
               <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:7, display:'flex', alignItems:'center', justifyContent:'space-between', gap:5 }}>
                 <span style={{ display:'flex', alignItems:'center', gap:5 }}>
                   <span className="material-symbols-outlined" style={{ fontSize:14 }}>travel_explore</span> Internet tunnel (different cities):
@@ -280,7 +290,7 @@ export function Lobby({ ws, onJoined }) {
           )}
 
           {/* Server + reconnect */}
-          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }} id="tour-server-address">
             <div style={{ display:'flex', gap:6 }}>
               <input className="sw-input" value={serverUrl} onChange={e=>setServerUrl(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&handleReconnect()}
@@ -296,7 +306,7 @@ export function Lobby({ ws, onJoined }) {
           </div>
 
           {/* Name */}
-          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }} id="tour-name-field">
             <label style={{ fontSize:13, fontWeight:700, color:'var(--color-on-surface-variant)', paddingLeft:2, display:'flex', alignItems:'center', gap:5 }}>
               <span className="material-symbols-outlined" style={{ fontSize:15 }}>person</span> Your name
             </label>
@@ -304,7 +314,7 @@ export function Lobby({ ws, onJoined }) {
               placeholder="Enter your nickname" onKeyDown={e=>e.key==='Enter'&&createRoom()} />
           </div>
 
-          <button className="btn-primary" onClick={createRoom} disabled={connStatus!=='open'}>
+          <button className="btn-primary" onClick={createRoom} disabled={connStatus!=='open'} id="tour-create-btn">
             Create room <span style={{ fontSize:15 }}>✦</span>
           </button>
 
@@ -315,7 +325,7 @@ export function Lobby({ ws, onJoined }) {
 
           {/* Join */}
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }} id="tour-code-field">
               <label style={{ fontSize:13, fontWeight:700, color:'var(--color-on-surface-variant)', paddingLeft:2, display:'flex', alignItems:'center', gap:5 }}>
                 <span className="material-symbols-outlined" style={{ fontSize:15 }}>tag</span> Room code
               </label>
@@ -323,7 +333,7 @@ export function Lobby({ ws, onJoined }) {
                 onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))}
                 placeholder="ABCDEF" maxLength={6} onKeyDown={e=>e.key==='Enter'&&joinRoom()} />
             </div>
-            <button className="btn-secondary" onClick={joinRoom} disabled={connStatus!=='open'}>Join room</button>
+            <button className="btn-secondary" onClick={joinRoom} disabled={connStatus!=='open'} id="tour-join-btn">Join room</button>
           </div>
 
           {/* Error */}
@@ -353,6 +363,57 @@ export function Lobby({ ws, onJoined }) {
           </p>
         </div>
       </main>
+
+      {showTour && (
+        <HelpTour steps={tourSteps} onClose={() => setShowTour(false)} />
+      )}
     </div>
   );
 }
+
+// Roughly top-to-bottom order of the Lobby card — steps whose target isn't
+// currently in the DOM (e.g. the LAN/tunnel boxes only exist in the
+// Electron build, and only once a value is actually available) are
+// filtered out automatically by HelpTour itself.
+const tourSteps = [
+  {
+    selector: '#tour-conn-pill',
+    title: 'Connection status',
+    text: 'Shows whether you\'re currently connected to a SyncWatch server — yours, or a friend\'s if you\'ve pointed this app at their link below.',
+  },
+  {
+    selector: '#tour-lan-box',
+    title: 'Same Wi-Fi as a friend?',
+    text: 'Share this link with them — it works instantly over your local network, no internet or extra setup needed.',
+  },
+  {
+    selector: '#tour-tunnel-box',
+    title: 'Friend in a different place?',
+    text: 'Start a tunnel here to get a link that works over the internet, then send it to them. Add a free ngrok token in the settings (gear icon) for a link that works on their very first try.',
+  },
+  {
+    selector: '#tour-server-address',
+    title: 'Which server you\'re on',
+    text: 'This is which SyncWatch server you\'re connected to — normally your own. Paste a friend\'s tunnel or LAN link here (then hit ↺) to join their room instead.',
+  },
+  {
+    selector: '#tour-name-field',
+    title: 'Your name',
+    text: 'This is what your friends will see next to your messages and in the viewer list once you\'re in a room.',
+  },
+  {
+    selector: '#tour-create-btn',
+    title: 'Start a room',
+    text: 'Creates a new room and gives you a code to share with friends — you\'ll be the host.',
+  },
+  {
+    selector: '#tour-code-field',
+    title: 'Got a room code?',
+    text: 'Type the 6-character code a friend sent you here to join their room.',
+  },
+  {
+    selector: '#tour-join-btn',
+    title: 'Join a room',
+    text: 'Click here after entering a friend\'s room code above.',
+  },
+];

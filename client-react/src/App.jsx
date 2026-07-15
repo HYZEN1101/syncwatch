@@ -20,7 +20,7 @@ export default function App() {
   // close it completely and reopen, or hard-refresh with Ctrl+Shift+R.
   useEffect(() => {
     if (typeof __BUILD_TIME__ !== 'undefined') {
-      console.log(`%c🎬 SyncWatch build: ${__BUILD_TIME__}`, 'color:#a72e4a;font-weight:bold;font-size:12px');
+      console.log(`%cSyncWatch build: ${__BUILD_TIME__}`, 'color:#a72e4a;font-weight:bold;font-size:12px');
     }
   }, []);
 

@@ -20,6 +20,12 @@ export function useSync(ws, code, role, onStreamLoaded) {
   const startedAt    = useRef(null);
   const [status, setStatus] = useState('Waiting for stream…');
   const [hasFrame, setHasFrame] = useState(false);
+  // Reactive mirror of localPlaying.current — the ref alone is enough for
+  // the timing math (estimatedTime, etc.), but the UI (a single play/pause
+  // toggle button, rather than two separate always-visible buttons) needs
+  // an actual React value to know which icon/action to show. Kept in sync
+  // at every point localPlaying.current itself changes, below.
+  const [isPlaying, setIsPlaying] = useState(false);
   // Phase 4: distinct from the generic status text — true when a page
   // loaded successfully but no <video> element was ever found on it after
   // the full retry window (electron/playback.js's waitForVideoAndRun gives
@@ -155,12 +161,14 @@ export function useSync(ws, code, role, onStreamLoaded) {
 
     if (state === 'play') {
       localPlaying.current = true;
+      setIsPlaying(true);
       startedAt.current    = Date.now() - correctedTime * 1000;
       if (drift > DRIFT_THRESHOLD) { localTime.current = correctedTime; iframeCmd('playfrom', correctedTime); }
       else iframeCmd('play');
       setStatus('▶ In Sync');
     } else if (state === 'pause') {
       localPlaying.current = false;
+      setIsPlaying(false);
       localTime.current    = correctedTime;
       startedAt.current    = null;
       // Only force an exact-time seek if drift is large enough to matter —
@@ -258,6 +266,7 @@ export function useSync(ws, code, role, onStreamLoaded) {
           playConfirmed.current = true;
           clearTimeout(playConfirmTimeout.current);
           localPlaying.current  = true;
+          setIsPlaying(true);
           localTime.current     = currentTime;
           startedAt.current     = Date.now() - currentTime * 1000;
           refreshStatus();
@@ -265,6 +274,7 @@ export function useSync(ws, code, role, onStreamLoaded) {
         case 'pause':
           buffering.current    = false;
           localPlaying.current = false;
+          setIsPlaying(false);
           localTime.current    = currentTime;
           startedAt.current    = null;
           refreshStatus();
@@ -287,6 +297,7 @@ export function useSync(ws, code, role, onStreamLoaded) {
         case 'ended':
           buffering.current     = false;
           localPlaying.current  = false;
+          setIsPlaying(false);
           startedAt.current     = null;
           setStatus('■ Ended');
           break;
@@ -326,5 +337,5 @@ export function useSync(ws, code, role, onStreamLoaded) {
     return () => document.removeEventListener('keydown', onKey);
   }, [sendPlay, sendPause, sendSeek]);
 
-  return { frameRef, status, hasFrame, setHasFrame, sendPlay, sendPause, sendSeek, loadUrl, isElectron, applyState, videoNotFound, setVideoNotFound };
+  return { frameRef, status, hasFrame, setHasFrame, isPlaying, sendPlay, sendPause, sendSeek, loadUrl, isElectron, applyState, videoNotFound, setVideoNotFound };
 }

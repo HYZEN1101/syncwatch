@@ -8,6 +8,20 @@ import { useSync   } from '../hooks/useSync';
 import { useVoice  } from '../hooks/useVoice';
 import { useChat   } from '../hooks/useChat';
 
+// Auto-dismisses a one-off notification banner after a delay — used for
+// the "something happened, here's what to do" banners below (load
+// failures, bridge-not-detected, etc). Deliberately NOT used for anything
+// reflecting a live, ongoing state (e.g. "connection lost" while actually
+// still disconnected) or a blocking error the user needs to actively act
+// on — auto-hiding either of those would be misleading, not helpful.
+function useAutoDismiss(active, dismiss, ms = 10000) {
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(dismiss, ms);
+    return () => clearTimeout(t);
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 function ThemeToggle() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   function toggle() {
@@ -471,6 +485,14 @@ export function Room({ ws, onLeave }) {
 
   const isHost = role === 'host';
 
+  // Auto-dismiss one-off notification banners after 10s — see
+  // useAutoDismiss's own comment above for why connLost/joinError are
+  // deliberately excluded.
+  useAutoDismiss(codeChanged, () => setCodeChanged(false));
+  useAutoDismiss(loadFailed, () => setLoadFailed(false));
+  useAutoDismiss(sync.videoNotFound, () => sync.setVideoNotFound(false));
+  useAutoDismiss(bridgeWarning, () => setBridgeWarning(false));
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden', background:'var(--color-background)', position:'relative' }}>
 
@@ -485,11 +507,11 @@ export function Room({ ws, onLeave }) {
         backdropFilter:'blur(16px)',
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontSize:16, fontWeight:800, color:'var(--color-primary)', letterSpacing:'-0.01em' }}>
-            SyncWatch <span style={{ color:'var(--color-secondary)', fontSize:13 }}>✦</span>
+          <span className="font-logo" style={{ fontSize:16, color:'var(--color-primary)', letterSpacing:'-0.01em' }}>
+            SyncWatch
           </span>
-          <div style={{
-            fontSize:11, fontWeight:700, padding:'3px 10px',
+          <div className="font-room-name" style={{
+            fontSize:11, padding:'3px 10px',
             background:'var(--color-primary-fixed)', color:'var(--color-on-primary-fixed)',
             borderRadius:6, letterSpacing:'0.07em',
             display:'flex', alignItems:'center', gap:5,
@@ -674,13 +696,11 @@ export function Room({ ws, onLeave }) {
           {/* Controls */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 14px', flexShrink:0, background:'var(--color-surface-container-lowest)', borderTop:'1px solid rgba(222,191,194,0.2)', gap:8 }}>
             <div style={{ display:'flex', gap:2 }}>
-              {[{icon:'play_circle',fn:sync.sendPlay,title:'Play (Space)'},{icon:'pause_circle',fn:sync.sendPause,title:'Pause (Space)'}].map(({icon,fn,title})=>(
-                <button key={icon} onClick={fn} title={title}
-                  style={{ background:'none', border:'none', cursor:'pointer', padding:4, borderRadius:'50%', color:'var(--color-primary)', display:'flex', transition:'transform 0.15s' }}
-                  onMouseEnter={e=>e.currentTarget.style.transform='scale(1.12)'}
-                  onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
-                ><span className="material-symbols-outlined" style={{fontSize:34}}>{icon}</span></button>
-              ))}
+              <button onClick={sync.isPlaying ? sync.sendPause : sync.sendPlay} title={sync.isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                style={{ background:'none', border:'none', cursor:'pointer', padding:4, borderRadius:'50%', color:'var(--color-primary)', display:'flex', transition:'transform 0.15s' }}
+                onMouseEnter={e=>e.currentTarget.style.transform='scale(1.12)'}
+                onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
+              ><span className="material-symbols-outlined" style={{fontSize:34}}>{sync.isPlaying ? 'pause_circle' : 'play_circle'}</span></button>
             </div>
             <div style={{ display:'flex', gap:4 }}>
               {[{icon:'replay_30',d:-30,l:'-30s'},{icon:'replay_10',d:-10,l:'-10s'},{icon:'forward_10',d:+10,l:'+10s'},{icon:'forward_30',d:+30,l:'+30s'}].map(({icon,d,l})=>(

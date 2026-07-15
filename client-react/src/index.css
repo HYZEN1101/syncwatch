@@ -36,7 +36,18 @@
   --color-surface-container-highest:#f7daf4;
   --color-outline:                  #8a7173;
   --color-outline-variant:          #debfc2;
-  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  /* Font system:
+       App logo, Movie title  -> Sora Bold     (--font-display, 700)
+       Page titles            -> Sora Semibold (--font-display, 600)
+       Room names             -> Inter Semibold(--font-sans, 600)
+       Buttons                -> Inter Medium  (--font-sans, 500)
+       Chat, everything else  -> Inter Regular (--font-sans, 400)
+     --font-sans stays the base/default (html { font-family }) so nothing
+     needs to opt in just to get the right typeface; --font-display and the
+     .font-* utility classes below are for the specific roles above that
+     need a different family or weight than that default. */
+  --font-sans:    'Inter', sans-serif;
+  --font-display: 'Sora', sans-serif;
 }
 
 .dark {
@@ -76,6 +87,40 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-outline); }
+
+/* ── Font roles ───────────────────────────────── */
+/* App logo (the "SyncWatch" wordmark) and a movie/stream's own title text. */
+.font-logo, .font-movie-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+/* Page-level headings (e.g. the Lobby's own page title). */
+.font-page-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+/* A room's display name / room-code label. */
+.font-room-name {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+/* Buttons — anything clickable that triggers an action. */
+.font-button {
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+/* Chat messages. Same family/weight as the base default below, but named
+   explicitly so it's clear this is a deliberate choice for that element,
+   not just inheriting whatever the base happens to be. */
+.font-chat {
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+/* Buttons — Inter Medium by default for every real <button> element,
+   without needing to touch each one's individual inline styles. Anything
+   that visually acts like a button but isn't a real <button> tag can use
+   .font-button explicitly instead. */
+button { font-family: var(--font-sans); font-weight: 500; }
 
 /* ── SVG background pattern ───────────────────── */
 .floral-bg {
@@ -275,6 +320,7 @@ body {
   padding: 10px 14px;
   max-width: 82%;
   font-size: 13px; line-height: 1.5;
+  font-family: var(--font-sans); font-weight: 400;
   box-shadow: 0 2px 8px rgba(167,46,74,0.25);
   word-break: break-word;
 }
@@ -285,6 +331,7 @@ body {
   padding: 10px 14px;
   max-width: 82%;
   font-size: 13px; line-height: 1.5;
+  font-family: var(--font-sans); font-weight: 400;
   word-break: break-word;
 }
 .dark .bubble-peer { background: var(--color-surface-container-highest); }
