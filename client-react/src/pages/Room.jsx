@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { session, prefs } from '../session';
+import { session } from '../session';
 import { ChatPanel } from '../components/ChatPanel';
 import { VoiceBar  } from '../components/VoiceBar';
 import { PeerList  } from '../components/PeerList';
 import { Player    } from '../components/Player';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { useSync   } from '../hooks/useSync';
 import { useVoice  } from '../hooks/useVoice';
 import { useChat   } from '../hooks/useChat';
@@ -20,33 +21,6 @@ function useAutoDismiss(active, dismiss, ms = 10000) {
     const t = setTimeout(dismiss, ms);
     return () => clearTimeout(t);
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
-}
-
-function ThemeToggle() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
-  function toggle() {
-    const next = !dark; setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    prefs.set('sw-theme', next ? 'dark' : 'light');
-  }
-  return (
-    <button onClick={toggle} title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      style={{
-        display:'flex', alignItems:'center', gap:6,
-        padding:'5px 10px', border:'1px solid rgba(167,46,74,0.2)',
-        borderRadius:20, background:'rgba(167,46,74,0.06)',
-        cursor:'pointer', color:'var(--color-primary)',
-        fontSize:11, fontWeight:600, transition:'all 0.2s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.background='rgba(167,46,74,0.13)'}
-      onMouseLeave={e => e.currentTarget.style.background='rgba(167,46,74,0.06)'}
-    >
-      <span className="material-symbols-outlined" style={{ fontSize:16 }}>
-        {dark ? 'light_mode' : 'dark_mode'}
-      </span>
-      {dark ? 'Light' : 'Dark'}
-    </button>
-  );
 }
 
 /* Subtle floating decorations — same as lobby but lighter */
@@ -535,7 +509,7 @@ export function Room({ ws, onLeave }) {
               {sync.status}
             </div>
           )}
-          <ThemeToggle />
+          <ThemeSwitcher />
           <button onClick={onLeave}
             style={{ fontSize:12, fontWeight:600, padding:'5px 12px', background:'rgba(186,26,26,0.07)', color:'var(--color-error)', border:'1px solid rgba(186,26,26,0.18)', borderRadius:20, cursor:'pointer', transition:'all 0.2s' }}
             onMouseEnter={e => e.currentTarget.style.background='rgba(186,26,26,0.13)'}

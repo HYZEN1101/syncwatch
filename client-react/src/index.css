@@ -2,6 +2,7 @@
 
 @theme {
   --color-primary:                  #a72e4a;
+  --color-primary-shade:            #c44060;
   --color-on-primary:               #ffffff;
   --color-primary-container:        #c74762;
   --color-primary-fixed:            #ffd9dd;
@@ -50,7 +51,18 @@
   --font-display: 'Sora', sans-serif;
 }
 
-.dark {
+/* ── Themes ───────────────────────────────────────
+   "legacy-light" is the default (@theme block above) — no override block
+   needed for it. Every other theme sets data-theme="X" on <html> to swap
+   in this same set of ~19 variables (everything else in @theme — errors,
+   tertiary, the *-fixed-dim tokens, fonts — stays constant across themes).
+   The separate .theme-dark CLASS (also toggled on <html>, alongside
+   data-theme) is what drives the handful of rules further down that need
+   fundamentally different structure in a dark-styled theme (flat vs.
+   gradient buttons, which surface tier an input uses, etc.) — it's applied
+   whenever legacy-dark / midnight-mauve / slate-teal is active, kept
+   separate from data-theme so those rules don't need repeating 3x. */
+[data-theme="legacy-dark"] {
   --color-background:               #100b16;
   --color-on-background:            #ffebfb;
   --color-surface:                  #1a1020;
@@ -65,11 +77,207 @@
   --color-outline:                  #9e8688;
   --color-outline-variant:          #574144;
   --color-primary:                  #ffb2bc;
+  --color-primary-shade:            #ff8fa0;
   --color-primary-fixed:            #5a1026;
   --color-on-primary-fixed:         #ffd9dd;
   --color-secondary:                #e0aadd;
   --color-secondary-container:      #663466;
   --color-on-secondary-container:   #ffd6f8;
+}
+
+/* The 8 palettes below (named, not literally the Color Hunt filenames)
+   were generated from 4-color source palettes by picking a background,
+   primary, and secondary from each, then deriving the rest (on-background,
+   surface tiers, outline, the *-fixed/-container pairs) with fixed-ratio
+   color-mix()-equivalent blends toward black/white — the same relationship
+   the two legacy themes already have between their own values, just
+   computed instead of hand-picked, so every theme keeps consistent
+   contrast (checked: 8:1-14:1 for body text against its background,
+   comfortably past WCAG AA's 4.5:1). "light"-style themes mix toward
+   black for text; "dark"-style themes (midnight-mauve, slate-teal) mix
+   toward white — same idea as legacy-light/legacy-dark's own relationship. */
+[data-theme="rosewater-noir"] {
+  --color-background:               #f1e9e9;
+  --color-on-background:            #3d0f3d;
+  --color-surface:                  #ead9e3;
+  --color-surface-variant:          #ddbed7;
+  --color-on-surface:               #3d0f3d;
+  --color-on-surface-variant:       #775574;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #ede1e6;
+  --color-surface-container:        #ead9e3;
+  --color-surface-container-high:   #e5cede;
+  --color-surface-container-highest:#ddbed7;
+  --color-outline:                  #8e718a;
+  --color-outline-variant:          #c6b5c0;
+  --color-primary:                  #982598;
+  --color-primary-shade:            #ab4cab;
+  --color-primary-fixed:            #ead3ea;
+  --color-on-primary-fixed:         #310c31;
+  --color-secondary:                #e491c9;
+  --color-secondary-container:      #f7e0f0;
+  --color-on-secondary-container:   #945e83;
+}
+
+[data-theme="violet-dream"] {
+  --color-background:               #ebd3f8;
+  --color-on-background:            #310b45;
+  --color-surface:                  #e2c4f2;
+  --color-surface-variant:          #d2abe7;
+  --color-on-surface:               #310b45;
+  --color-on-surface-variant:       #6d4b7e;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #e6ccf5;
+  --color-surface-container:        #e2c4f2;
+  --color-surface-container-high:   #dbb9ed;
+  --color-surface-container-highest:#d2abe7;
+  --color-outline:                  #856596;
+  --color-outline-variant:          #bea3cd;
+  --color-primary:                  #7a1cac;
+  --color-primary-shade:            #9245bb;
+  --color-primary-fixed:            #e4d2ee;
+  --color-on-primary-fixed:         #270937;
+  --color-secondary:                #ad49e1;
+  --color-secondary-container:      #e8ccf7;
+  --color-on-secondary-container:   #702f92;
+}
+
+[data-theme="midnight-mauve"] {
+  --color-background:               #1a1a1d;
+  --color-on-background:            #dac7d4;
+  --color-surface:                  #2f2f31;
+  --color-surface-variant:          #4c4c4f;
+  --color-on-surface:               #dac7d4;
+  --color-on-surface-variant:       #9d9099;
+  --color-surface-container-lowest: #111113;
+  --color-surface-container-low:    #232326;
+  --color-surface-container:        #2f2f31;
+  --color-surface-container-high:   #3c3c3f;
+  --color-surface-container-highest:#4c4c4f;
+  --color-outline:                  #847982;
+  --color-outline-variant:          #504a50;
+  --color-primary:                  #6a1e55;
+  --color-primary-shade:            #571946;
+  --color-primary-fixed:            #280b20;
+  --color-on-primary-fixed:         #e1d2dd;
+  --color-secondary:                #a64d79;
+  --color-secondary-container:      #6c324f;
+  --color-on-secondary-container:   #e6cdd9;
+}
+
+[data-theme="cotton-candy"] {
+  --color-background:               #ffefe3;
+  --color-on-background:            #66354a;
+  --color-surface:                  #ffe6e0;
+  --color-surface-variant:          #ffd7da;
+  --color-on-surface:               #66354a;
+  --color-on-surface-variant:       #97717b;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #ffebe1;
+  --color-surface-container:        #ffe6e0;
+  --color-surface-container-high:   #ffe0dd;
+  --color-surface-container-highest:#ffd7da;
+  --color-outline:                  #ab898f;
+  --color-outline-variant:          #dac2be;
+  --color-primary:                  #ff84ba;
+  --color-primary-shade:            #ff9ac6;
+  --color-primary-fixed:            #ffe6f1;
+  --color-on-primary-fixed:         #522a3c;
+  --color-secondary:                #99c2ff;
+  --color-secondary-container:      #e2eeff;
+  --color-on-secondary-container:   #637ea6;
+}
+
+[data-theme="lagoon-mist"] {
+  --color-background:               #d9fff4;
+  --color-on-background:            #1b2832;
+  --color-surface:                  #cdf3eb;
+  --color-surface-variant:          #b8ddda;
+  --color-on-surface:               #1b2832;
+  --color-on-surface-variant:       #586d70;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #d3f9ef;
+  --color-surface-container:        #cdf3eb;
+  --color-surface-container-high:   #c4e9e3;
+  --color-surface-container-highest:#b8ddda;
+  --color-outline:                  #708989;
+  --color-outline-variant:          #abcbc5;
+  --color-primary:                  #43637e;
+  --color-primary-shade:            #657f95;
+  --color-primary-fixed:            #d9e0e5;
+  --color-on-primary-fixed:         #152028;
+  --color-secondary:                #65dcd5;
+  --color-secondary-container:      #d4f5f3;
+  --color-on-secondary-container:   #428f8a;
+}
+
+[data-theme="peach-sorbet"] {
+  --color-background:               #eef8cd;
+  --color-on-background:            #663f3f;
+  --color-surface:                  #eff1c9;
+  --color-surface-variant:          #f2e4c2;
+  --color-on-surface:               #663f3f;
+  --color-on-surface-variant:       #927a6c;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #eff4cb;
+  --color-surface-container:        #eff1c9;
+  --color-surface-container-high:   #f0ebc6;
+  --color-surface-container-highest:#f2e4c2;
+  --color-outline:                  #a3927f;
+  --color-outline-variant:          #cdccab;
+  --color-primary:                  #ff9d9d;
+  --color-primary-shade:            #ffafaf;
+  --color-primary-fixed:            #ffebeb;
+  --color-on-primary-fixed:         #523232;
+  --color-secondary:                #bbf1d2;
+  --color-secondary-container:      #ecfbf2;
+  --color-on-secondary-container:   #7a9d88;
+}
+
+[data-theme="blush-cream"] {
+  --color-background:               #fff5e4;
+  --color-on-background:            #663b3b;
+  --color-surface:                  #ffedde;
+  --color-surface-variant:          #ffe0d2;
+  --color-on-surface:               #663b3b;
+  --color-on-surface-variant:       #977771;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low:    #fff1e1;
+  --color-surface-container:        #ffedde;
+  --color-surface-container-high:   #ffe7d9;
+  --color-surface-container-highest:#ffe0d2;
+  --color-outline:                  #ab8f87;
+  --color-outline-variant:          #dac8bb;
+  --color-primary:                  #ff9494;
+  --color-primary-shade:            #ffa7a7;
+  --color-primary-fixed:            #ffeaea;
+  --color-on-primary-fixed:         #522f2f;
+  --color-secondary:                #ffd1d1;
+  --color-secondary-container:      #fff2f2;
+  --color-on-secondary-container:   #a68888;
+}
+
+[data-theme="slate-teal"] {
+  --color-background:               #222831;
+  --color-on-background:            #bfeaec;
+  --color-surface:                  #363b44;
+  --color-surface-variant:          #53575e;
+  --color-on-surface:               #bfeaec;
+  --color-on-surface-variant:       #8dacb0;
+  --color-surface-container-lowest: #161a20;
+  --color-surface-container-low:    #2b3139;
+  --color-surface-container:        #363b44;
+  --color-surface-container-high:   #434850;
+  --color-surface-container-highest:#53575e;
+  --color-outline:                  #789398;
+  --color-outline-variant:          #4e5e65;
+  --color-primary:                  #00adb5;
+  --color-primary-shade:            #008e94;
+  --color-primary-fixed:            #004245;
+  --color-on-primary-fixed:         #cceff0;
+  --color-secondary:                #393e46;
+  --color-secondary-container:      #25282e;
+  --color-on-secondary-container:   #c8c9cb;
 }
 
 /* ── Base ─────────────────────────────────────── */
@@ -128,7 +336,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
   background-color: var(--color-background);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23a72e4a' stroke-opacity='0.07' stroke-width='1'%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(0 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(45 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(90 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(135 40 40)'/%3E%3Ccircle cx='40' cy='40' r='3' fill='%23a72e4a' fill-opacity='0.1' stroke='none'/%3E%3C/g%3E%3C/svg%3E");
 }
-.dark .floral-bg {
+.theme-dark .floral-bg {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23ffb2bc' stroke-opacity='0.05' stroke-width='1'%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(0 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(45 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(90 40 40)'/%3E%3Cellipse cx='40' cy='40' rx='6' ry='12' transform='rotate(135 40 40)'/%3E%3Ccircle cx='40' cy='40' r='3' fill='%23ffb2bc' fill-opacity='0.08' stroke='none'/%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -151,9 +359,9 @@ button { font-family: var(--font-sans); font-weight: 500; }
   background: radial-gradient(circle, rgba(136,71,100,0.07) 0%, transparent 65%);
   animation: blobDrift 15s ease-in-out infinite alternate;
 }
-.dark .blob-tl { background: radial-gradient(circle, rgba(255,178,188,0.07) 0%, transparent 65%); }
-.dark .blob-br { background: radial-gradient(circle, rgba(224,170,221,0.06) 0%, transparent 65%); }
-.dark .blob-tr { background: radial-gradient(circle, rgba(242,178,237,0.05) 0%, transparent 65%); }
+.theme-dark .blob-tl { background: radial-gradient(circle, rgba(255,178,188,0.07) 0%, transparent 65%); }
+.theme-dark .blob-br { background: radial-gradient(circle, rgba(224,170,221,0.06) 0%, transparent 65%); }
+.theme-dark .blob-tr { background: radial-gradient(circle, rgba(242,178,237,0.05) 0%, transparent 65%); }
 
 @keyframes blobDrift {
   from { transform: translate(0, 0) scale(1); }
@@ -181,43 +389,29 @@ button { font-family: var(--font-sans); font-weight: 500; }
 .float-deco.secondary { color: var(--color-secondary); }
 
 /* ── Glass card ───────────────────────────────── */
+/* Uses color-mix() against the CURRENT theme's own surface/primary/on-
+   surface variables rather than hardcoded rgba() pairs — adapts correctly
+   to any theme automatically (including the 8 new ones below), no
+   .theme-dark override needed here at all. */
 .glass-card {
-  background: rgba(255, 252, 254, 0.82);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid color-mix(in srgb, var(--color-on-surface) 12%, transparent);
   box-shadow:
-    0 4px 24px rgba(167, 46, 74, 0.08),
-    0 1px 4px rgba(167, 46, 74, 0.04),
-    inset 0 1px 0 rgba(255,255,255,0.8);
-}
-.dark .glass-card {
-  background: rgba(35, 26, 41, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255,255,255,0.05);
+    0 4px 24px color-mix(in srgb, var(--color-primary) 10%, transparent),
+    0 1px 4px color-mix(in srgb, var(--color-primary) 5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 55%, transparent);
 }
 
 /* ── Room header bar ──────────────────────────── */
 /* Was previously hardcoded as inline styles directly on the <header> in
-   Room.jsx — those literal rgba() values never changed with the .dark
-   class, so the header stayed light-themed regardless of the theme
-   toggle, unlike everything else in it (which already used var(--color-*)
-   custom properties). Pulled out into its own class, same light/dark-pair
-   pattern as .glass-card above, so it actually follows the theme now. */
+   Room.jsx — those literal rgba() values never changed with the theme at
+   all. Now theme-agnostic via color-mix(), same reasoning as .glass-card. */
 .app-header {
-  background: rgba(255, 247, 250, 0.93);
-  border-bottom: 1px solid rgba(222, 191, 194, 0.35);
-  box-shadow: 0 1px 10px rgba(232, 96, 122, 0.07);
-}
-.dark .app-header {
-  /* Matches --color-surface's dark value (#1a1020) at the same alpha the
-     light version uses against its own --color-surface (#fff7fa), rather
-     than an unrelated one-off color. */
-  background: rgba(26, 16, 32, 0.93);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--color-surface) 93%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-on-surface) 12%, transparent);
+  box-shadow: 0 1px 10px color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 /* ── Petal divider SVG ────────────────────────── */
@@ -259,11 +453,11 @@ button { font-family: var(--font-sans); font-weight: 500; }
   box-shadow: 0 0 0 3px rgba(167,46,74,0.12);
   background: var(--color-surface-container-lowest);
 }
-.dark .sw-input {
+.theme-dark .sw-input {
   background: var(--color-surface-container-high);
   border-color: var(--color-outline-variant);
 }
-.dark .sw-input:focus {
+.theme-dark .sw-input:focus {
   background: var(--color-surface-container);
   box-shadow: 0 0 0 3px rgba(255,178,188,0.15);
 }
@@ -271,7 +465,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
 /* ── Buttons ──────────────────────────────────── */
 .btn-primary {
   width: 100%; padding: 13px 16px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #c44060 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-shade) 100%);
   color: #fff;
   border: none; border-radius: 10px;
   font-size: 14px; font-weight: 700;
@@ -287,6 +481,11 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(167,46,74,0.25); }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The specific change requested: no gradient on buttons in dark-styled
+   themes — flat var(--color-primary) instead. Applies to legacy-dark and
+   both new dark-style themes (midnight-mauve, slate-teal) via the shared
+   .theme-dark class, not just legacy-dark specifically. */
+.theme-dark .btn-primary { background: var(--color-primary); }
 
 .btn-secondary {
   width: 100%; padding: 12px 16px;
@@ -303,7 +502,6 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .btn-secondary:active:not(:disabled) { transform: translateY(0); }
 .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
-.dark .btn-secondary { color: var(--color-secondary-fixed-dim); border-color: var(--color-secondary-fixed-dim); }
 
 /* ── Sync dot pulse ───────────────────────────── */
 @keyframes pulse-dot {
@@ -314,16 +512,17 @@ button { font-family: var(--font-sans); font-weight: 500; }
 
 /* ── Chat bubbles ─────────────────────────────── */
 .bubble-self {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #c44060 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-shade) 100%);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
   padding: 10px 14px;
   max-width: 82%;
   font-size: 13px; line-height: 1.5;
   font-family: var(--font-sans); font-weight: 400;
-  box-shadow: 0 2px 8px rgba(167,46,74,0.25);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 25%, transparent);
   word-break: break-word;
 }
+.theme-dark .bubble-self { background: var(--color-primary); }
 .bubble-peer {
   background: var(--color-surface-container-high);
   color: var(--color-on-surface);
@@ -334,7 +533,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
   font-family: var(--font-sans); font-weight: 400;
   word-break: break-word;
 }
-.dark .bubble-peer { background: var(--color-surface-container-highest); }
+.theme-dark .bubble-peer { background: var(--color-surface-container-highest); }
 
 /* ── Peer avatar ──────────────────────────────── */
 .peer-avatar {
@@ -347,9 +546,10 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .peer-avatar:hover { transform: scale(1.08); }
 .peer-avatar.host-avatar {
-  background: linear-gradient(135deg, var(--color-primary), #c44060);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-shade));
   color: #fff; border-color: var(--color-primary);
 }
+.theme-dark .peer-avatar.host-avatar { background: var(--color-primary); }
 .peer-avatar.member-avatar {
   background: var(--color-surface-container-high);
   color: var(--color-on-surface-variant);
@@ -372,9 +572,9 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .info-box-primary { background: rgba(167,46,74,0.05); }
 .info-box-secondary { background: rgba(129,75,127,0.05); }
-.dark .info-box { border-color: rgba(255,255,255,0.08); }
-.dark .info-box-primary { background: rgba(255,178,188,0.06); }
-.dark .info-box-secondary { background: rgba(224,170,221,0.06); }
+.theme-dark .info-box { border-color: rgba(255,255,255,0.08); }
+.theme-dark .info-box-primary { background: rgba(255,178,188,0.06); }
+.theme-dark .info-box-secondary { background: rgba(224,170,221,0.06); }
 
 /* ── Material Symbols ─────────────────────────── */
 .material-symbols-outlined {
@@ -385,7 +585,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
 
 /* ── Theme toggle shadow ──────────────────────── */
 .theme-shadow { box-shadow: 0 4px 14px rgba(167,46,74,0.30); }
-.dark .theme-shadow { box-shadow: 0 4px 14px rgba(255,178,188,0.20); }
+.theme-dark .theme-shadow { box-shadow: 0 4px 14px rgba(255,178,188,0.20); }
 
 /* ── Reaction button hover ────────────────────── */
 .reaction-btn {

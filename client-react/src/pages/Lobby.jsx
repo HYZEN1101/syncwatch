@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { session, prefs } from '../session';
+import { session } from '../session';
 import { HelpTour } from '../components/HelpTour';
+import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
 function FloralDeco() {
   const items = [
@@ -73,7 +74,6 @@ export function Lobby({ ws, onJoined }) {
   const [showTour, setShowTour] = useState(false);
   const [ngrokToken, setNgrokTokenInput] = useState('');
   const [ngrokTokenSaved, setNgrokTokenSaved] = useState(false);
-  const [dark,       setDark]       = useState(() => document.documentElement.classList.contains('dark'));
 
   // Sync conn status
   useEffect(() => ws.onStatus(s => setConnStatus(s)), [ws]);
@@ -140,11 +140,6 @@ export function Lobby({ ws, onJoined }) {
   }, [ws, name, onJoined]);
 
   function handleReconnect() { ws.reconnect(serverUrl.trim()); setError(''); }
-  function toggleTheme() {
-    const next = !dark; setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    prefs.set('sw-theme', next ? 'dark' : 'light');
-  }
   async function handleTunnel() {
     if (!window.syncwatch) return;
     setTunneling(true);
@@ -343,16 +338,9 @@ export function Lobby({ ws, onJoined }) {
             </p>
           )}
 
-          {/* Theme toggle inline */}
+          {/* Theme switcher */}
           <div style={{ display:'flex', justifyContent:'center', paddingTop:4 }}>
-            <button onClick={toggleTheme}
-              style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--color-outline)', padding:'5px 12px', borderRadius:8, transition:'all 0.2s' }}
-              onMouseEnter={e=>e.currentTarget.style.color='var(--color-primary)'}
-              onMouseLeave={e=>e.currentTarget.style.color='var(--color-outline)'}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize:15 }}>{dark?'light_mode':'dark_mode'}</span>
-              Switch to {dark?'light':'dark'} mode
-            </button>
+            <ThemeSwitcher />
           </div>
 
           {/* Build watermark — if two open tabs show different times here,

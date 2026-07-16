@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { SyncWatchWS } from './ws';
 import { Lobby } from './pages/Lobby';
 import { Room  } from './pages/Room';
-import { session, prefs } from './session';
+import { session } from './session';
+import { getInitialTheme, applyTheme } from './theme';
 
 // Derive the correct default WS URL — always ws://localhost:3000 in Electron
 function defaultWsUrl() {
@@ -26,10 +27,11 @@ export default function App() {
 
   // Apply saved theme immediately — theme is the one thing that SHOULD
   // be shared across tabs, so it stays in localStorage via prefs.
+  // getInitialTheme() handles migrating old plain 'dark'/'light' values
+  // (from before the multi-theme system) and falling back to the OS's
+  // prefers-color-scheme for a brand new user with nothing saved yet.
   useEffect(() => {
-    const saved = prefs.get('sw-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.classList.toggle('dark', saved ? saved === 'dark' : prefersDark);
+    applyTheme(getInitialTheme());
   }, []);
 
   // Room/session state uses sessionStorage — scoped to THIS tab only.
