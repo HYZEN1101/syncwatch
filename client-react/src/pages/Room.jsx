@@ -603,7 +603,7 @@ export function Room({ ws, onLeave }) {
               onKeyDown={e => e.key === 'Enter' && loadStream()} />
           </div>
           <button onClick={loadStream}
-            style={{ padding:'9px 20px', background:'linear-gradient(135deg,var(--color-primary),#c44060)', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', transition:'all 0.2s', boxShadow:'0 2px 10px rgba(167,46,74,0.25)' }}
+            style={{ padding:'9px 20px', background:'var(--color-primary)', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', transition:'all 0.2s', boxShadow:'0 2px 10px color-mix(in srgb, var(--color-primary) 25%, transparent)' }}
             onMouseEnter={e => { e.currentTarget.style.opacity='0.88'; e.currentTarget.style.transform='translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='translateY(0)'; }}
           >

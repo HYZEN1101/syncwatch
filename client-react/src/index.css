@@ -465,7 +465,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
 /* ── Buttons ──────────────────────────────────── */
 .btn-primary {
   width: 100%; padding: 13px 16px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-shade) 100%);
+  background: var(--color-primary);
   color: #fff;
   border: none; border-radius: 10px;
   font-size: 14px; font-weight: 700;
@@ -481,11 +481,9 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(167,46,74,0.25); }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-/* The specific change requested: no gradient on buttons in dark-styled
-   themes — flat var(--color-primary) instead. Applies to legacy-dark and
-   both new dark-style themes (midnight-mauve, slate-teal) via the shared
-   .theme-dark class, not just legacy-dark specifically. */
-.theme-dark .btn-primary { background: var(--color-primary); }
+/* Flat background for every theme — no gradient at all, per explicit
+   request. Also fixed .bubble-self and .peer-avatar.host-avatar below the
+   same way, since they used the identical gradient pattern. */
 
 .btn-secondary {
   width: 100%; padding: 12px 16px;
@@ -512,7 +510,7 @@ button { font-family: var(--font-sans); font-weight: 500; }
 
 /* ── Chat bubbles ─────────────────────────────── */
 .bubble-self {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-shade) 100%);
+  background: var(--color-primary);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
   padding: 10px 14px;
@@ -522,7 +520,6 @@ button { font-family: var(--font-sans); font-weight: 500; }
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 25%, transparent);
   word-break: break-word;
 }
-.theme-dark .bubble-self { background: var(--color-primary); }
 .bubble-peer {
   background: var(--color-surface-container-high);
   color: var(--color-on-surface);
@@ -546,10 +543,9 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .peer-avatar:hover { transform: scale(1.08); }
 .peer-avatar.host-avatar {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-shade));
+  background: var(--color-primary);
   color: #fff; border-color: var(--color-primary);
 }
-.theme-dark .peer-avatar.host-avatar { background: var(--color-primary); }
 .peer-avatar.member-avatar {
   background: var(--color-surface-container-high);
   color: var(--color-on-surface-variant);

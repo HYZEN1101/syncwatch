@@ -12,6 +12,13 @@ import { useState, useEffect } from 'react';
 // first-run tour, an accidental dismiss from a stray click is worse than
 // requiring an explicit Skip/Escape. Escape and the Skip button both exit
 // immediately; Next/Back navigate; the last step's button reads "Done".
+//
+// The overlay INTENTIONALLY captures all pointer events (including over the
+// spotlighted element itself) rather than passing clicks/scroll through to
+// the real page — an earlier version let the highlighted field stay
+// interactive during the tour, which meant you could scroll or click things
+// underneath and end up misaligned with what the tour was actually
+// pointing at. The spotlight is now purely visual.
 export function HelpTour({ steps, onClose }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState(null);
@@ -22,7 +29,16 @@ export function HelpTour({ steps, onClose }) {
     function update() {
       const step = activeSteps[stepIndex];
       const el = step && document.querySelector(step.selector);
-      setRect(el ? el.getBoundingClientRect() : null);
+      if (el) {
+        // Only relevant if the Lobby card itself ended up needing to
+        // scroll (a very short window) — harmless no-op otherwise, since
+        // an element already in view won't move when asked to scroll into
+        // view again.
+        el.scrollIntoView({ block: 'nearest' });
+        setRect(el.getBoundingClientRect());
+      } else {
+        setRect(null);
+      }
     }
     update();
     window.addEventListener('resize', update);
@@ -78,6 +94,15 @@ export function HelpTour({ steps, onClose }) {
 
   return (
     <>
+      {/* The actual interaction blocker — covers the full viewport and
+          captures every pointer event, so nothing underneath (including
+          the highlighted field itself) can be scrolled or clicked while
+          the tour is open. Below the spotlight/tooltip in z-index but
+          above everything else in the app. */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1999 }}
+        onWheel={e => e.preventDefault()}
+        onTouchMove={e => e.preventDefault()}
+      />
       <div style={spotlightStyle} />
       <div className="glass-card" style={{
         position: 'fixed', top, left, width: tooltipWidth, zIndex: 2001,

@@ -111,10 +111,10 @@ export function ChatPanel({ messages, sendMessage }) {
           <button onClick={submit}
             style={{
               width:36, height:36, borderRadius:'50%', border:'none', flexShrink:0,
-              background:'linear-gradient(135deg,var(--color-primary),#c44060)',
+              background:'var(--color-primary)',
               color:'#fff', cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center',
-              boxShadow:'0 2px 8px rgba(167,46,74,0.30)',
+              boxShadow:'0 2px 8px color-mix(in srgb, var(--color-primary) 30%, transparent)',
               transition:'all 0.2s',
             }}
             onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}

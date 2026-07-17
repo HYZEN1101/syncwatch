@@ -55,7 +55,7 @@ export function PeerList({ ws, code, role, myId, initialPeers = [] }) {
           <span className="material-symbols-outlined" style={{ fontSize:16 }}>group</span>
           Viewers
         </h3>
-        <span style={{ fontSize:11, fontWeight:800, padding:'2px 10px', background:'linear-gradient(135deg,var(--color-primary-fixed),var(--color-secondary-fixed))', color:'var(--color-on-primary-fixed)', borderRadius:9999 }}>
+        <span style={{ fontSize:11, fontWeight:800, padding:'2px 10px', background:'var(--color-primary-fixed)', color:'var(--color-on-primary-fixed)', borderRadius:9999 }}>
           {total}
         </span>
       </div>

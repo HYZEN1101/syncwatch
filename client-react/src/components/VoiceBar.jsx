@@ -2,7 +2,7 @@ export function VoiceBar({ micActive, muted, status, toggleMute, joinVoice }) {
   const isOff   = !micActive;
   const isMuted = micActive && muted;
 
-  const btnBg    = isMuted ? 'var(--color-error)' : 'linear-gradient(135deg,var(--color-primary),#c44060)';
+  const btnBg    = isMuted ? 'var(--color-error)' : 'var(--color-primary)';
   const iconName = isMuted ? 'mic_off' : isOff ? 'mic' : 'mic';
   const label    = isOff ? 'JOIN VOICE' : isMuted ? 'MUTED' : 'VOICE ACTIVE';
   const labelColor = isMuted ? 'var(--color-error)' : isOff ? 'var(--color-outline)' : 'var(--color-primary)';
