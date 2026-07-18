@@ -119,27 +119,27 @@
   --color-on-secondary-container:   #945e83;
 }
 
-[data-theme="violet-dream"] {
-  --color-background:               #ebd3f8;
-  --color-on-background:            #310b45;
-  --color-surface:                  #e2c4f2;
-  --color-surface-variant:          #d2abe7;
-  --color-on-surface:               #310b45;
-  --color-on-surface-variant:       #6d4b7e;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low:    #e6ccf5;
-  --color-surface-container:        #e2c4f2;
-  --color-surface-container-high:   #dbb9ed;
-  --color-surface-container-highest:#d2abe7;
-  --color-outline:                  #856596;
-  --color-outline-variant:          #bea3cd;
-  --color-primary:                  #7a1cac;
-  --color-primary-shade:            #9245bb;
-  --color-primary-fixed:            #e4d2ee;
-  --color-on-primary-fixed:         #270937;
-  --color-secondary:                #ad49e1;
-  --color-secondary-container:      #e8ccf7;
-  --color-on-secondary-container:   #702f92;
+[data-theme="violet-noir"] {
+  --color-background:               #000000;
+  --color-on-background:            #dac0de;
+  --color-surface:                  #171717;
+  --color-surface-variant:          #383838;
+  --color-on-surface:               #dac0de;
+  --color-on-surface-variant:       #948397;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low:    #0a0a0a;
+  --color-surface-container:        #171717;
+  --color-surface-container-high:   #262626;
+  --color-surface-container-highest:#383838;
+  --color-outline:                  #786a7a;
+  --color-outline-variant:          #3d363e;
+  --color-primary:                  #6a027d;
+  --color-primary-shade:            #570267;
+  --color-primary-fixed:            #280130;
+  --color-on-primary-fixed:         #e1cce5;
+  --color-secondary:                #c161a1;
+  --color-secondary-container:      #7d3f69;
+  --color-on-secondary-container:   #eed3e5;
 }
 
 [data-theme="midnight-mauve"] {
@@ -188,73 +188,83 @@
   --color-on-secondary-container:   #637ea6;
 }
 
-[data-theme="lagoon-mist"] {
-  --color-background:               #d9fff4;
-  --color-on-background:            #1b2832;
-  --color-surface:                  #cdf3eb;
-  --color-surface-variant:          #b8ddda;
-  --color-on-surface:               #1b2832;
-  --color-on-surface-variant:       #586d70;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low:    #d3f9ef;
-  --color-surface-container:        #cdf3eb;
-  --color-surface-container-high:   #c4e9e3;
-  --color-surface-container-highest:#b8ddda;
-  --color-outline:                  #708989;
-  --color-outline-variant:          #abcbc5;
-  --color-primary:                  #43637e;
-  --color-primary-shade:            #657f95;
-  --color-primary-fixed:            #d9e0e5;
-  --color-on-primary-fixed:         #152028;
-  --color-secondary:                #65dcd5;
-  --color-secondary-container:      #d4f5f3;
-  --color-on-secondary-container:   #428f8a;
+[data-theme="amber-dusk"] {
+  --color-background:               #250242;
+  --color-on-background:            #e8c7d9;
+  --color-surface:                  #391953;
+  --color-surface-variant:          #553a6c;
+  --color-on-surface:               #e8c7d9;
+  --color-on-surface-variant:       #aa88a9;
+  --color-surface-container-lowest: #18012b;
+  --color-surface-container-low:    #2e0c4a;
+  --color-surface-container:        #391953;
+  --color-surface-container-high:   #46285e;
+  --color-surface-container-highest:#553a6c;
+  --color-outline:                  #906e95;
+  --color-outline-variant:          #5c396c;
+  --color-primary:                  #a22068;
+  --color-primary-shade:            #851a55;
+  --color-primary-fixed:            #3e0c28;
+  --color-on-primary-fixed:         #ecd2e1;
+  --color-secondary:                #fec260;
+  --color-secondary-container:      #a57e3e;
+  --color-on-secondary-container:   #ffeed2;
 }
 
 [data-theme="peach-sorbet"] {
-  --color-background:               #eef8cd;
+  /* Background changed from eef8cd to ffc5aa (a previously-unused color
+     from the same source palette) and the surface-mix ratio increased
+     substantially (8%→20%+) — the original had the panel and background
+     at a contrast ratio of ~1.02:1 (functionally indistinguishable) since
+     this palette's colors are all similarly pale; picking a different
+     source color alone didn't fix that (still ~1.02-1.05:1), so the mix
+     strength needed increasing too, specifically for this theme. */
+  --color-background:               #ffc5aa;
   --color-on-background:            #663f3f;
-  --color-surface:                  #eff1c9;
-  --color-surface-variant:          #f2e4c2;
+  --color-surface:                  #ffbda7;
+  --color-surface-variant:          #ffb4a5;
   --color-on-surface:               #663f3f;
-  --color-on-surface-variant:       #927a6c;
+  --color-on-surface-variant:       #976a61;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low:    #eff4cb;
-  --color-surface-container:        #eff1c9;
-  --color-surface-container-high:   #f0ebc6;
-  --color-surface-container-highest:#f2e4c2;
-  --color-outline:                  #a3927f;
-  --color-outline-variant:          #cdccab;
+  --color-surface-container-low:    #ffc0a8;
+  --color-surface-container:        #ffbda7;
+  --color-surface-container-high:   #ffb9a6;
+  --color-surface-container-highest:#ffb4a5;
+  --color-outline:                  #ab7b6f;
+  --color-outline-variant:          #daa590;
   --color-primary:                  #ff9d9d;
   --color-primary-shade:            #ffafaf;
   --color-primary-fixed:            #ffebeb;
   --color-on-primary-fixed:         #523232;
   --color-secondary:                #bbf1d2;
-  --color-secondary-container:      #ecfbf2;
+  --color-secondary-container:      #e0f9eb;
   --color-on-secondary-container:   #7a9d88;
 }
 
 [data-theme="blush-cream"] {
-  --color-background:               #fff5e4;
+  /* Same fix as peach-sorbet above: background changed from fff5e4 to
+     ffd1d1 (the theme's own former secondary — swapped roles with it,
+     fff5e4 is now secondary), plus the same stronger surface-mix. */
+  --color-background:               #ffd1d1;
   --color-on-background:            #663b3b;
-  --color-surface:                  #ffedde;
-  --color-surface-variant:          #ffe0d2;
+  --color-surface:                  #ffc5c5;
+  --color-surface-variant:          #ffb7b7;
   --color-on-surface:               #663b3b;
-  --color-on-surface-variant:       #977771;
+  --color-on-surface-variant:       #976b6b;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low:    #fff1e1;
-  --color-surface-container:        #ffedde;
-  --color-surface-container-high:   #ffe7d9;
-  --color-surface-container-highest:#ffe0d2;
-  --color-outline:                  #ab8f87;
-  --color-outline-variant:          #dac8bb;
+  --color-surface-container-low:    #ffcaca;
+  --color-surface-container:        #ffc5c5;
+  --color-surface-container-high:   #ffbfbf;
+  --color-surface-container-highest:#ffb7b7;
+  --color-outline:                  #ab7e7e;
+  --color-outline-variant:          #daadad;
   --color-primary:                  #ff9494;
   --color-primary-shade:            #ffa7a7;
   --color-primary-fixed:            #ffeaea;
   --color-on-primary-fixed:         #522f2f;
-  --color-secondary:                #ffd1d1;
-  --color-secondary-container:      #fff2f2;
-  --color-on-secondary-container:   #a68888;
+  --color-secondary:                #fff5e4;
+  --color-secondary-container:      #fffaf3;
+  --color-on-secondary-container:   #a69f94;
 }
 
 [data-theme="slate-teal"] {
