@@ -604,3 +604,64 @@ button { font-family: var(--font-sans); font-weight: 500; }
   filter: saturate(1);
   background: rgba(167,46,74,0.06);
 }
+
+/* ── Whimsy Mode ──────────────────────────────── */
+/* Floating reaction burst — rises and fades, confined to whatever
+   container renders it (see FloatingReactions.jsx for why that matters). */
+.whimsy-reaction-burst {
+  position: absolute;
+  bottom: 8px;
+  font-size: 22px;
+  animation: whimsy-rise 2.2s ease-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes whimsy-rise {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  15%  { transform: translateY(-20px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(-220px) scale(1); opacity: 0; }
+}
+
+/* Confetti piece */
+.whimsy-confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation-name: whimsy-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+@keyframes whimsy-fall {
+  0%   { transform: translate(0, 0) rotate(var(--rotate-start)); opacity: 1; }
+  100% { transform: translate(var(--drift), 100vh) rotate(calc(var(--rotate-start) + 360deg)); opacity: 0.8; }
+}
+
+/* Ambient particle background — subtle, sidebar-scoped (see comment in
+   AmbientParticles.jsx for why it's confined there, same reasoning as
+   FloatingReactions). */
+.whimsy-ambient {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1;
+}
+.whimsy-ambient span {
+  position: absolute;
+  bottom: -10px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.35;
+  animation: whimsy-float-up linear infinite;
+}
+@keyframes whimsy-float-up {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 0.4; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(-100%) translateX(10px); opacity: 0; }
+}
+
+/* Respect reduced-motion: disable every Whimsy animation outright rather
+   than offering a "lighter" version — per the spec's own accessibility
+   requirement, this isn't a place to compromise. */
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-reaction-burst, .whimsy-confetti-piece { animation: none !important; opacity: 0 !important; }
+  .whimsy-ambient { display: none; }
+}

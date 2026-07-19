@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 
 const REACTIONS = ['❤️','🔥','✨','😂','😮','👏'];
 
-export function ChatPanel({ messages, sendMessage }) {
+export function ChatPanel({ messages, sendMessage, onReact, whimsyEnabled }) {
   const [input, setInput] = useState('');
   const logRef = useRef(null);
   // Track last timestamp group to avoid re-computing on every render
@@ -83,7 +83,7 @@ export function ChatPanel({ messages, sendMessage }) {
         flexShrink:0,
       }}>
         {REACTIONS.map(emoji => (
-          <button key={emoji} className="reaction-btn" onClick={() => sendMessage(emoji)} title={emoji}>
+          <button key={emoji} className="reaction-btn" onClick={() => { sendMessage(emoji); if (whimsyEnabled) onReact?.(emoji); }} title={emoji}>
             {emoji}
           </button>
         ))}

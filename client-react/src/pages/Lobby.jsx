@@ -227,99 +227,91 @@ export function Lobby({ ws, onJoined }) {
             <ConnPill status={connStatus} host={connStatus==='open' ? hostPart : null} />
           </div>
 
-          {/* Same-Wi-Fi / internet options — collapsed by default. This
-              used to be two always-expanded boxes (LAN + tunnel), which
-              was the single biggest chunk of variable height pushing the
-              card past the viewport. Most sessions don't need either box
-              open at all (you're either just creating/joining locally, or
-              you deliberately want this), so there's no good reason for
-              it to cost vertical space by default. */}
-          {(lanIP || window.syncwatch) && (
-            <div id="tour-network-toggle">
-              <button onClick={() => setNetworkOpen(o => !o)}
-                style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', padding:'8px 10px', background:'rgba(167,46,74,0.05)', border:'1px solid rgba(167,46,74,0.12)', borderRadius:9, cursor:'pointer', color:'var(--color-on-surface-variant)' }}
-              >
-                <span className="font-button" style={{ display:'flex', alignItems:'center', gap:6, fontSize:11.5 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize:15 }}>lan</span>
-                  Connect with a friend
+          {/* Internet tunnel — now the prominent, always-visible default.
+              Previously this lived behind a collapsed "Connect with a
+              friend" toggle alongside the LAN option, to keep the lobby
+              compact — but tunnel (not LAN) is actually the common case
+              for friends on different networks, so it shouldn't need an
+              extra click to even see. The LAN option is now the
+              secondary, tucked-away one instead (see below), since it's
+              the less common case here. */}
+          {window.syncwatch && (
+            <div className="info-box info-box-secondary" id="tour-tunnel-box">
+              <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:7, display:'flex', alignItems:'center', justifyContent:'space-between', gap:5 }}>
+                <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize:14 }}>travel_explore</span> Internet link — share with friends:
                 </span>
-                <span className="material-symbols-outlined" style={{ fontSize:16, transform: networkOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>expand_more</span>
-              </button>
-
-              {networkOpen && (
-                <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:8 }}>
-                  {lanIP && (
-                    <div className="info-box info-box-primary" id="tour-lan-box">
-                      <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:6, display:'flex', alignItems:'center', gap:5 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize:14 }}>wifi</span> Same Wi-Fi — share with friends:
+                <div ref={tunnelSettingsRef} style={{ position:'relative' }}>
+                  <button onClick={() => setShowTunnelSettings(s => !s)} title="Tunnel settings"
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', display:'flex', padding:0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize:15 }}>settings</span>
+                  </button>
+                  {/* Floating popover instead of an inline-expanding
+                      panel — settings shouldn't cost layout height just
+                      for existing, only while actually open, and even
+                      then it shouldn't push anything else around
+                      underneath it. */}
+                  {showTunnelSettings && (
+                    <div className="glass-card" style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:60, width:250, padding:12, borderRadius:12 }}>
+                      <p style={{ margin:'0 0 6px', fontSize:10.5, color:'var(--color-on-surface-variant)', lineHeight:1.5 }}>
+                        A free <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" rel="noreferrer" style={{ color:'var(--color-secondary)' }}>ngrok authtoken</a> gives
+                        friends a link that works on their very first join — one-time setup, only you (the host) ever need it.
+                      </p>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <input className="sw-input" type="password" value={ngrokToken}
+                          onChange={e => setNgrokTokenInput(e.target.value)}
+                          placeholder="Paste ngrok authtoken"
+                          style={{ flex:1, padding:'7px 10px', fontSize:11, borderRadius:8 }} />
+                        <button onClick={saveNgrokToken}
+                          style={{ padding:'7px 12px', background:'rgba(129,75,127,0.12)', border:'1.5px solid rgba(129,75,127,0.25)', borderRadius:8, color:'var(--color-secondary)', cursor:'pointer', fontWeight:700, fontSize:11, flexShrink:0 }}>
+                          {ngrokTokenSaved ? '✓' : 'Save'}
+                        </button>
                       </div>
-                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                        <code style={{ flex:1, fontSize:12, color:'var(--color-primary)', background:'rgba(167,46,74,0.08)', padding:'5px 9px', borderRadius:7 }}>ws://{lanIP}:3000</code>
-                        <CopyBtn text={`ws://${lanIP}:3000`} />
-                      </div>
+                      <p style={{ margin:'6px 0 0', fontSize:9.5, color:'var(--color-outline)' }}>
+                        Takes effect next tunnel start. Without a token, falls back to localtunnel — works, but friends may need an extra step on their first connection.
+                      </p>
                     </div>
                   )}
+                </div>
+              </div>
 
-                  {window.syncwatch && (
-                    <div className="info-box info-box-secondary" id="tour-tunnel-box">
-                      <div style={{ color:'var(--color-on-surface-variant)', fontSize:11, marginBottom:7, display:'flex', alignItems:'center', justifyContent:'space-between', gap:5 }}>
-                        <span style={{ display:'flex', alignItems:'center', gap:5 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize:14 }}>travel_explore</span> Internet tunnel (different cities):
-                        </span>
-                        <div ref={tunnelSettingsRef} style={{ position:'relative' }}>
-                          <button onClick={() => setShowTunnelSettings(s => !s)} title="Tunnel settings"
-                            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', display:'flex', padding:0 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize:15 }}>settings</span>
-                          </button>
-                          {/* Floating popover instead of an inline-expanding
-                              panel — settings shouldn't cost layout height
-                              just for existing, only while actually open,
-                              and even then it shouldn't push anything else
-                              around underneath it. */}
-                          {showTunnelSettings && (
-                            <div className="glass-card" style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:60, width:250, padding:12, borderRadius:12 }}>
-                              <p style={{ margin:'0 0 6px', fontSize:10.5, color:'var(--color-on-surface-variant)', lineHeight:1.5 }}>
-                                A free <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" rel="noreferrer" style={{ color:'var(--color-secondary)' }}>ngrok authtoken</a> gives
-                                friends a link that works on their very first join — one-time setup, only you (the host) ever need it.
-                              </p>
-                              <div style={{ display:'flex', gap:6 }}>
-                                <input className="sw-input" type="password" value={ngrokToken}
-                                  onChange={e => setNgrokTokenInput(e.target.value)}
-                                  placeholder="Paste ngrok authtoken"
-                                  style={{ flex:1, padding:'7px 10px', fontSize:11, borderRadius:8 }} />
-                                <button onClick={saveNgrokToken}
-                                  style={{ padding:'7px 12px', background:'rgba(129,75,127,0.12)', border:'1.5px solid rgba(129,75,127,0.25)', borderRadius:8, color:'var(--color-secondary)', cursor:'pointer', fontWeight:700, fontSize:11, flexShrink:0 }}>
-                                  {ngrokTokenSaved ? '✓' : 'Save'}
-                                </button>
-                              </div>
-                              <p style={{ margin:'6px 0 0', fontSize:9.5, color:'var(--color-outline)' }}>
-                                Takes effect next tunnel start. Without a token, falls back to localtunnel — works, but friends may need an extra step on their first connection.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+              {wssTunnel
+                ? <>
+                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <code style={{ flex:1, fontSize:11, color:'var(--color-secondary)', background:'rgba(129,75,127,0.08)', padding:'5px 9px', borderRadius:7, wordBreak:'break-all' }}>{wssTunnel}</code>
+                      <CopyBtn text={wssTunnel} />
+                    </div>
+                    <p style={{ margin:'6px 0 0', fontSize:10, color:'var(--color-on-surface-variant)' }}>
+                      via {tunnelInfo?.provider === 'ngrok' ? 'ngrok' : 'localtunnel'}
+                    </p>
+                    {tunnelInfo?.warning && (
+                      <p style={{ margin:'4px 0 0', fontSize:10, color:'#a15c00', background:'rgba(200,140,0,0.08)', padding:'6px 8px', borderRadius:6 }}>
+                        ⚠ {tunnelInfo.warning}
+                      </p>
+                    )}
+                  </>
+                : <button onClick={handleTunnel} disabled={tunneling}
+                    style={{ padding:'8px 16px', background:'var(--color-secondary)', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:tunneling?'not-allowed':'pointer', opacity:tunneling?0.6:1, transition:'all 0.2s', width:'100%' }}>
+                    {tunneling ? '⏳ Starting tunnel…' : '▶ Activate internet link'}
+                  </button>
+              }
 
-                      {wssTunnel
-                        ? <>
-                            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                              <code style={{ flex:1, fontSize:11, color:'var(--color-secondary)', background:'rgba(129,75,127,0.08)', padding:'5px 9px', borderRadius:7, wordBreak:'break-all' }}>{wssTunnel}</code>
-                              <CopyBtn text={wssTunnel} />
-                            </div>
-                            <p style={{ margin:'6px 0 0', fontSize:10, color:'var(--color-on-surface-variant)' }}>
-                              via {tunnelInfo?.provider === 'ngrok' ? 'ngrok' : 'localtunnel'}
-                            </p>
-                            {tunnelInfo?.warning && (
-                              <p style={{ margin:'4px 0 0', fontSize:10, color:'#a15c00', background:'rgba(200,140,0,0.08)', padding:'6px 8px', borderRadius:6 }}>
-                                ⚠ {tunnelInfo.warning}
-                              </p>
-                            )}
-                          </>
-                        : <button onClick={handleTunnel} disabled={tunneling}
-                            style={{ padding:'8px 16px', background:'var(--color-secondary)', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:tunneling?'not-allowed':'pointer', opacity:tunneling?0.6:1, transition:'all 0.2s' }}>
-                            {tunneling ? '⏳ Starting tunnel…' : '▶ Start internet tunnel'}
-                          </button>
-                      }
+              {/* Same-Wi-Fi is the secondary/less common case here — a
+                  small tucked-away toggle instead of its own always-open
+                  box, so it doesn't compete for space with the tunnel
+                  link above. */}
+              {lanIP && (
+                <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid rgba(129,75,127,0.12)' }} id="tour-lan-toggle">
+                  <button onClick={() => setNetworkOpen(o => !o)}
+                    style={{ display:'flex', alignItems:'center', gap:5, background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', fontSize:10.5, padding:0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize:13 }}>wifi</span>
+                    Same Wi-Fi as your friend instead?
+                    <span className="material-symbols-outlined" style={{ fontSize:14, transform: networkOpen ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>expand_more</span>
+                  </button>
+                  {networkOpen && (
+                    <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:6 }} id="tour-lan-box">
+                      <code style={{ flex:1, fontSize:11, color:'var(--color-primary)', background:'rgba(167,46,74,0.08)', padding:'5px 9px', borderRadius:7 }}>ws://{lanIP}:3000</code>
+                      <CopyBtn text={`ws://${lanIP}:3000`} />
                     </div>
                   )}
                 </div>
@@ -426,9 +418,9 @@ const tourSteps = [
     text: 'Shows whether you\'re currently connected to a SyncWatch server — yours, or a friend\'s if you\'ve pointed this app at their link below.',
   },
   {
-    selector: '#tour-network-toggle',
-    title: 'Connecting with a friend',
-    text: 'Click here to reveal options for a friend on the same Wi-Fi (instant, no setup) or a different city (needs a quick internet tunnel).',
+    selector: '#tour-tunnel-box',
+    title: 'Your internet link',
+    text: 'Click "Activate internet link" to get a link that works for friends on any network — then copy and send it. Same Wi-Fi as your friend instead? There\'s a smaller option for that right below.',
   },
   {
     selector: '#tour-server-address',

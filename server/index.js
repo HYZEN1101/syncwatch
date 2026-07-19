@@ -174,6 +174,22 @@ function handle(ws, msg) {
       break;
     }
 
+    case MSG.REACTION_BURST: {
+      if (!ws.roomCode) return;
+      const emoji = String(msg.emoji || '').slice(0, 8); // small cap, just a sanity bound
+      if (!emoji) return;
+      // No persistence (unlike chat) — a reaction burst that arrived while
+      // you were mid-refresh just isn't something worth replaying later.
+      broadcast(ws.roomCode, { type: MSG.REACTION_BURST, emoji, fromName: ws.displayName }, ws);
+      break;
+    }
+
+    case MSG.CONFETTI: {
+      if (!ws.roomCode) return;
+      broadcast(ws.roomCode, { type: MSG.CONFETTI, fromName: ws.displayName }, ws);
+      break;
+    }
+
     case MSG.PERMISSION_GRANT: {
       if (!ws.roomCode || ws.role !== 'host') return;
       const room = rooms.get(ws.roomCode);

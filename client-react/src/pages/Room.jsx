@@ -5,9 +5,13 @@ import { VoiceBar  } from '../components/VoiceBar';
 import { PeerList  } from '../components/PeerList';
 import { Player    } from '../components/Player';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import { FloatingReactions } from '../components/FloatingReactions';
+import { ConfettiLayer } from '../components/ConfettiLayer';
+import { AmbientParticles } from '../components/AmbientParticles';
 import { useSync   } from '../hooks/useSync';
 import { useVoice  } from '../hooks/useVoice';
 import { useChat   } from '../hooks/useChat';
+import { useWhimsy } from '../hooks/useWhimsy';
 
 // Auto-dismisses a one-off notification banner after a delay — used for
 // the "something happened, here's what to do" banners below (load
@@ -251,6 +255,7 @@ export function Room({ ws, onLeave }) {
   });
   const voice = useVoice(ws, code);
   const chat  = useChat(ws, code, initialChat);
+  const whimsy = useWhimsy(ws, code);
 
   // Pings the embed repeatedly for a few seconds (instead of once) and
   // schedules a single cancellable "assume missing" check. Repeated
@@ -473,6 +478,7 @@ export function Room({ ws, onLeave }) {
       {/* Subtle ambient background */}
       <div className="floral-bg" style={{ opacity:0.4 }} />
       <FloralDeco />
+      <ConfettiLayer confettiKey={whimsy.confettiKey} />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="app-header" style={{
@@ -510,6 +516,29 @@ export function Room({ ws, onLeave }) {
             </div>
           )}
           <ThemeSwitcher />
+          {/* Whimsy Mode toggle — purely cosmetic, never touches playback
+              sync. See useWhimsy.js for how enabled/disabled also gates
+              whether this client sends OR receives reactions/confetti. */}
+          <button onClick={whimsy.toggle} title={whimsy.enabled ? 'Turn off Whimsy Mode' : 'Turn on Whimsy Mode'}
+            style={{
+              display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:20,
+              border: whimsy.enabled ? '1px solid rgba(167,46,74,0.35)' : '1px solid rgba(167,46,74,0.15)',
+              background: whimsy.enabled ? 'rgba(167,46,74,0.13)' : 'rgba(167,46,74,0.04)',
+              cursor:'pointer', color:'var(--color-primary)', fontSize:11, fontWeight:600, transition:'all 0.2s',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize:15 }}>auto_awesome</span>
+            Whimsy
+          </button>
+          {isHost && whimsy.enabled && (
+            <button onClick={whimsy.triggerConfetti} title="Celebrate!"
+              style={{ background:'none', border:'none', cursor:'pointer', display:'flex', padding:5, borderRadius:'50%', color:'var(--color-on-surface-variant)', transition:'all 0.15s' }}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,46,74,0.08)';e.currentTarget.style.color='var(--color-primary)';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--color-on-surface-variant)';}}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize:18 }}>celebration</span>
+            </button>
+          )}
           <button onClick={onLeave}
             style={{ fontSize:12, fontWeight:600, padding:'5px 12px', background:'rgba(186,26,26,0.07)', color:'var(--color-error)', border:'1px solid rgba(186,26,26,0.18)', borderRadius:20, cursor:'pointer', transition:'all 0.2s' }}
             onMouseEnter={e => e.currentTarget.style.background='rgba(186,26,26,0.13)'}
@@ -719,10 +748,12 @@ export function Room({ ws, onLeave }) {
         </div>
 
         {/* Sidebar */}
-        <aside style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)' }}>
+        <aside style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)', position:'relative' }}>
+          {whimsy.enabled && <AmbientParticles />}
+          {whimsy.enabled && <FloatingReactions bursts={whimsy.bursts} />}
           <PeerList ws={ws} code={code} role={role} myId={myId} initialPeers={initialPeers} />
           <VoiceBar {...voice} />
-          <ChatPanel messages={chat.messages} sendMessage={chat.sendMessage} />
+          <ChatPanel messages={chat.messages} sendMessage={chat.sendMessage} onReact={whimsy.sendReaction} whimsyEnabled={whimsy.enabled} />
         </aside>
       </div>
     </div>

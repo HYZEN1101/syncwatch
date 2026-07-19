@@ -20,4 +20,10 @@ module.exports = {
   // Phase 4
   PERMISSION_GRANT:  'PERMISSION_GRANT',
   PERMISSION_REVOKE: 'PERMISSION_REVOKE',
+
+  // Whimsy Mode — purely cosmetic, ephemeral (never persisted, never
+  // affects playback timing/state). Relayed to the room the same way
+  // CHAT_MSG is, just with no history kept.
+  REACTION_BURST: 'REACTION_BURST',
+  CONFETTI:       'CONFETTI',
 };
