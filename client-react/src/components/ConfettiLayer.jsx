@@ -27,7 +27,7 @@ export function ConfettiLayer({ confettiKey }) {
 
   useEffect(() => {
     if (confettiKey === 0) return; // 0 is the initial/never-triggered value
-    const fresh = makePieces(70);
+    const fresh = makePieces(180);
     setPieces(fresh);
     const longest = Math.max(...fresh.map(p => p.delay + p.duration));
     const t = setTimeout(() => setPieces([]), (longest + 0.2) * 1000);

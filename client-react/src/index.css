@@ -644,18 +644,18 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 .whimsy-ambient span {
   position: absolute;
-  bottom: -10px;
-  width: 4px; height: 4px;
+  bottom: -16px;
+  width: 14px; height: 14px;
   border-radius: 50%;
-  background: var(--color-primary);
-  opacity: 0.35;
+  opacity: 0.75;
+  box-shadow: 0 0 8px currentColor;
   animation: whimsy-float-up linear infinite;
 }
 @keyframes whimsy-float-up {
   0%   { transform: translateY(0) translateX(0); opacity: 0; }
-  10%  { opacity: 0.4; }
-  90%  { opacity: 0.4; }
-  100% { transform: translateY(-100%) translateX(10px); opacity: 0; }
+  10%  { opacity: 0.75; }
+  90%  { opacity: 0.75; }
+  100% { transform: translateY(-100%) translateX(14px); opacity: 0; }
 }
 
 /* Respect reduced-motion: disable every Whimsy animation outright rather
@@ -664,4 +664,42 @@ button { font-family: var(--font-sans); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) {
   .whimsy-reaction-burst, .whimsy-confetti-piece { animation: none !important; opacity: 0 !important; }
   .whimsy-ambient { display: none; }
+}
+
+/* Rainbow hue-cycle for buttons/chat bubbles while Whimsy Mode is on.
+   Uses filter: hue-rotate() rather than manually interpolating through
+   discrete color stops — it smoothly cycles through the ENTIRE hue
+   spectrum on top of whatever the element's actual background already is,
+   regardless of the current theme's specific color, and preserves
+   lightness/saturation (so white text on top stays readable throughout
+   the cycle). Applying/removing the class is instant — no special
+   "revert" logic needed, the element just falls back to its normal
+   themed color the moment the class comes off. */
+.whimsy-rainbow {
+  animation: whimsy-hue-cycle 3s linear infinite;
+}
+@keyframes whimsy-hue-cycle {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-rainbow { animation: none; filter: none; }
+}
+
+/* Random whimsical tidbits (fireworks/flowers/plushies/candy/food) that
+   fade in, hold briefly, then fade back out. */
+.whimsy-sprite {
+  position: absolute;
+  animation: whimsy-sprite-life 2.8s ease-in-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes whimsy-sprite-life {
+  0%   { transform: scale(0.4) rotate(-8deg); opacity: 0; }
+  15%  { transform: scale(1.05) rotate(3deg); opacity: 1; }
+  25%  { transform: scale(1) rotate(0deg); opacity: 1; }
+  80%  { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(0.5) rotate(8deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-sprite { display: none; }
 }

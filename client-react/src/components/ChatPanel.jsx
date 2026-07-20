@@ -68,7 +68,7 @@ export function ChatPanel({ messages, sendMessage, onReact, whimsyEnabled }) {
                 <span style={{ fontSize:10, fontWeight:600, color:'var(--color-outline)', marginLeft:4 }}
                   dangerouslySetInnerHTML={{ __html: escHtml(msg.fromName) }} />
               )}
-              <div className={msg.self ? 'bubble-self' : 'bubble-peer'}
+              <div className={`${msg.self ? 'bubble-self' : 'bubble-peer'}${whimsyEnabled ? ' whimsy-rainbow' : ''}`}
                 dangerouslySetInnerHTML={{ __html: escHtml(msg.text) }} />
             </div>
           );
@@ -108,7 +108,7 @@ export function ChatPanel({ messages, sendMessage, onReact, whimsyEnabled }) {
             onFocus={e => { e.target.style.borderColor='var(--color-primary)'; e.target.style.boxShadow='0 0 0 3px rgba(167,46,74,0.10)'; }}
             onBlur={e => { e.target.style.borderColor='var(--color-outline-variant)'; e.target.style.boxShadow='none'; }}
           />
-          <button onClick={submit}
+          <button onClick={submit} className={whimsyEnabled ? 'whimsy-rainbow' : ''}
             style={{
               width:36, height:36, borderRadius:'50%', border:'none', flexShrink:0,
               background:'var(--color-primary)',

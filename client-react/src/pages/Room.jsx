@@ -8,6 +8,7 @@ import { ThemeSwitcher } from '../components/ThemeSwitcher';
 import { FloatingReactions } from '../components/FloatingReactions';
 import { ConfettiLayer } from '../components/ConfettiLayer';
 import { AmbientParticles } from '../components/AmbientParticles';
+import { WhimsySprites } from '../components/WhimsySprites';
 import { useSync   } from '../hooks/useSync';
 import { useVoice  } from '../hooks/useVoice';
 import { useChat   } from '../hooks/useChat';
@@ -631,7 +632,7 @@ export function Room({ ws, onLeave }) {
               style={{ paddingLeft:35, fontSize:13 }}
               onKeyDown={e => e.key === 'Enter' && loadStream()} />
           </div>
-          <button onClick={loadStream}
+          <button onClick={loadStream} className={whimsy.enabled ? 'whimsy-rainbow' : ''}
             style={{ padding:'9px 20px', background:'var(--color-primary)', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', transition:'all 0.2s', boxShadow:'0 2px 10px color-mix(in srgb, var(--color-primary) 25%, transparent)' }}
             onMouseEnter={e => { e.currentTarget.style.opacity='0.88'; e.currentTarget.style.transform='translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='translateY(0)'; }}
@@ -700,6 +701,7 @@ export function Room({ ws, onLeave }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 14px', flexShrink:0, background:'var(--color-surface-container-lowest)', borderTop:'1px solid rgba(222,191,194,0.2)', gap:8 }}>
             <div style={{ display:'flex', gap:2 }}>
               <button onClick={sync.isPlaying ? sync.sendPause : sync.sendPlay} title={sync.isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                className={whimsy.enabled ? 'whimsy-rainbow' : ''}
                 style={{ background:'none', border:'none', cursor:'pointer', padding:4, borderRadius:'50%', color:'var(--color-primary)', display:'flex', transition:'transform 0.15s' }}
                 onMouseEnter={e=>e.currentTarget.style.transform='scale(1.12)'}
                 onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
@@ -708,6 +710,7 @@ export function Room({ ws, onLeave }) {
             <div style={{ display:'flex', gap:4 }}>
               {[{icon:'replay_30',d:-30,l:'-30s'},{icon:'replay_10',d:-10,l:'-10s'},{icon:'forward_10',d:+10,l:'+10s'},{icon:'forward_30',d:+30,l:'+30s'}].map(({icon,d,l})=>(
                 <button key={icon} onClick={()=>sync.sendSeek(d)} title={l}
+                  className={whimsy.enabled ? 'whimsy-rainbow' : ''}
                   style={{ background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:1, padding:'4px 6px', borderRadius:8, color:'var(--color-on-surface-variant)', transition:'all 0.15s' }}
                   onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,46,74,0.07)';e.currentTarget.style.color='var(--color-primary)';}}
                   onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--color-on-surface-variant)';}}
@@ -739,6 +742,7 @@ export function Room({ ws, onLeave }) {
                   existing bounds-tracking loop picks up and reports to the
                   native view automatically — no separate fix needed there. */}
               <button title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'} onClick={() => setIsFullscreen(f => !f)}
+                className={whimsy.enabled ? 'whimsy-rainbow' : ''}
                 style={{ background:'none', border:'none', cursor:'pointer', color:'var(--color-on-surface-variant)', display:'flex', padding:4, borderRadius:6, transition:'all 0.15s' }}
                 onMouseEnter={e=>{e.currentTarget.style.background='rgba(167,46,74,0.07)';e.currentTarget.style.color='var(--color-primary)';}}
                 onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--color-on-surface-variant)';}}
@@ -750,6 +754,7 @@ export function Room({ ws, onLeave }) {
         {/* Sidebar */}
         <aside style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)', position:'relative' }}>
           {whimsy.enabled && <AmbientParticles />}
+          {whimsy.enabled && <WhimsySprites />}
           {whimsy.enabled && <FloatingReactions bursts={whimsy.bursts} />}
           <PeerList ws={ws} code={code} role={role} myId={myId} initialPeers={initialPeers} />
           <VoiceBar {...voice} />
