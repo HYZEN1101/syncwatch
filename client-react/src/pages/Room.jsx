@@ -480,6 +480,14 @@ export function Room({ ws, onLeave }) {
       <div className="floral-bg" style={{ opacity:0.4 }} />
       <FloralDeco />
       <ConfettiLayer confettiKey={whimsy.confettiKey} />
+      {/* Whimsy Mode's ambient polka-dot layer — spans the whole window
+          (this root div is already position:relative), not just the
+          sidebar. This also solves "don't show over the video" for free:
+          the video is a native view Electron composites ABOVE all regular
+          DOM content regardless of z-index, so a full-window layer like
+          this is automatically invisible wherever the video currently
+          sits, without needing to compute/exclude its rectangle manually. */}
+      {whimsy.enabled && <AmbientParticles />}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="app-header" style={{
@@ -753,7 +761,6 @@ export function Room({ ws, onLeave }) {
 
         {/* Sidebar */}
         <aside style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)', position:'relative' }}>
-          {whimsy.enabled && <AmbientParticles />}
           {whimsy.enabled && <WhimsySprites />}
           {whimsy.enabled && <FloatingReactions bursts={whimsy.bursts} />}
           <PeerList ws={ws} code={code} role={role} myId={myId} initialPeers={initialPeers} />
