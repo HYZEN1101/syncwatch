@@ -465,6 +465,22 @@ export function Room({ ws, onLeave }) {
 
   const isHost = role === 'host';
 
+  // Whimsy Mode: the video's top edge, computed fresh each time confetti
+  // fires — "land on top of the video box like a shoebox lid" rather than
+  // falling through/behind it. sync.frameRef is the same placeholder
+  // element Player.jsx positions the native video view over, so its
+  // bounding rect matches the video's visible box even before a stream is
+  // loaded (the empty-state placeholder is the same shape). Only needs to
+  // be read at the moment a burst starts, not tracked continuously — the
+  // window resizing mid-burst is a rare enough edge case not worth the
+  // extra complexity of a live ResizeObserver just for this.
+  const [confettiLandingY, setConfettiLandingY] = useState(null);
+  useEffect(() => {
+    if (whimsy.confettiKey === 0) return; // 0 = never triggered yet
+    const rect = sync.frameRef.current?.getBoundingClientRect();
+    setConfettiLandingY(rect ? rect.top : null);
+  }, [whimsy.confettiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-dismiss one-off notification banners after 10s — see
   // useAutoDismiss's own comment above for why connLost/joinError are
   // deliberately excluded.
@@ -479,7 +495,7 @@ export function Room({ ws, onLeave }) {
       {/* Subtle ambient background */}
       <div className="floral-bg" style={{ opacity:0.4 }} />
       <FloralDeco />
-      <ConfettiLayer confettiKey={whimsy.confettiKey} />
+      <ConfettiLayer confettiKey={whimsy.confettiKey} landingY={confettiLandingY} />
       {/* Whimsy Mode's ambient polka-dot layer — spans the whole window
           (this root div is already position:relative), not just the
           sidebar. This also solves "don't show over the video" for free:

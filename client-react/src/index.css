@@ -621,7 +621,9 @@ button { font-family: var(--font-sans); font-weight: 500; }
   100% { transform: translateY(-220px) scale(1); opacity: 0; }
 }
 
-/* Confetti piece */
+/* Confetti piece — falls to --fall-distance (set per-piece from
+   ConfettiLayer, based on the video box's top edge), lingers there
+   briefly as if resting on top of it, then fades out in place. */
 .whimsy-confetti-piece {
   position: absolute;
   top: -20px;
@@ -633,14 +635,16 @@ button { font-family: var(--font-sans); font-weight: 500; }
 }
 @keyframes whimsy-fall {
   0%   { transform: translate(0, 0) rotate(var(--rotate-start)); opacity: 1; }
-  100% { transform: translate(var(--drift), 100vh) rotate(calc(var(--rotate-start) + 360deg)); opacity: 0.8; }
+  70%  { transform: translate(var(--drift), var(--fall-distance)) rotate(calc(var(--rotate-start) + 360deg)); opacity: 1; }
+  85%  { transform: translate(var(--drift), var(--fall-distance)) rotate(calc(var(--rotate-start) + 360deg)); opacity: 1; }
+  100% { transform: translate(var(--drift), var(--fall-distance)) rotate(calc(var(--rotate-start) + 360deg)); opacity: 0; }
 }
 
 /* Ambient particle background — subtle, sidebar-scoped (see comment in
    AmbientParticles.jsx for why it's confined there, same reasoning as
    FloatingReactions). */
 .whimsy-ambient {
-  position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1;
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 20;
 }
 .whimsy-ambient span {
   position: absolute;
