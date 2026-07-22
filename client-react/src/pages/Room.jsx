@@ -465,20 +465,27 @@ export function Room({ ws, onLeave }) {
 
   const isHost = role === 'host';
 
-  // Whimsy Mode: the video's top edge, computed fresh each time confetti
-  // fires — "land on top of the video box like a shoebox lid" rather than
-  // falling through/behind it. sync.frameRef is the same placeholder
-  // element Player.jsx positions the native video view over, so its
-  // bounding rect matches the video's visible box even before a stream is
-  // loaded (the empty-state placeholder is the same shape). Only needs to
-  // be read at the moment a burst starts, not tracked continuously — the
-  // window resizing mid-burst is a rare enough edge case not worth the
-  // extra complexity of a live ResizeObserver just for this.
-  const [confettiLandingY, setConfettiLandingY] = useState(null);
+  // Whimsy Mode: bounds for where confetti should land, computed fresh
+  // each time a burst fires — pieces over the video column stop at its top
+  // edge ("land on the box lid" rather than falling through/behind it);
+  // pieces over the sidebar column have no video underneath, so they fall
+  // all the way to the bottom of the chat panel instead. sync.frameRef is
+  // the same placeholder element Player.jsx positions the native video
+  // view over, so its bounding rect matches the video's visible box even
+  // before a stream is loaded. Only read at the moment a burst starts, not
+  // tracked continuously — window resizing mid-burst is a rare enough edge
+  // case not worth a live ResizeObserver just for this.
+  const sidebarRef = useRef(null);
+  const [confettiBounds, setConfettiBounds] = useState(null);
   useEffect(() => {
     if (whimsy.confettiKey === 0) return; // 0 = never triggered yet
-    const rect = sync.frameRef.current?.getBoundingClientRect();
-    setConfettiLandingY(rect ? rect.top : null);
+    const videoRect = sync.frameRef.current?.getBoundingClientRect();
+    const sidebarRect = sidebarRef.current?.getBoundingClientRect();
+    setConfettiBounds({
+      videoTop: videoRect ? videoRect.top : null,
+      sidebarLeft: sidebarRect ? sidebarRect.left : null,
+      sidebarBottom: sidebarRect ? sidebarRect.bottom : null,
+    });
   }, [whimsy.confettiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-dismiss one-off notification banners after 10s — see
@@ -495,7 +502,7 @@ export function Room({ ws, onLeave }) {
       {/* Subtle ambient background */}
       <div className="floral-bg" style={{ opacity:0.4 }} />
       <FloralDeco />
-      <ConfettiLayer confettiKey={whimsy.confettiKey} landingY={confettiLandingY} />
+      <ConfettiLayer confettiKey={whimsy.confettiKey} bounds={confettiBounds} />
       {/* Whimsy Mode's ambient polka-dot layer — spans the whole window
           (this root div is already position:relative), not just the
           sidebar. This also solves "don't show over the video" for free:
@@ -776,7 +783,7 @@ export function Room({ ws, onLeave }) {
         </div>
 
         {/* Sidebar */}
-        <aside style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)', position:'relative' }}>
+        <aside ref={sidebarRef} style={{ width:272, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--color-surface-container-low)', borderLeft:'1px solid rgba(222,191,194,0.25)', position:'relative' }}>
           {whimsy.enabled && <WhimsySprites />}
           {whimsy.enabled && <FloatingReactions bursts={whimsy.bursts} />}
           <PeerList ws={ws} code={code} role={role} myId={myId} initialPeers={initialPeers} />

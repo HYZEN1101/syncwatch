@@ -20,4 +20,3 @@ Thumbs.db
 # Env
 .env
 .env.local
-client-react/src/pages/Room.jsx

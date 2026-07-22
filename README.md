@@ -1,4 +1,4 @@
-# SyncWatch
+# SyncWatch 🎬
 
 Watch movies together, perfectly in sync — with voice chat, text chat, and shared playback control.
 
